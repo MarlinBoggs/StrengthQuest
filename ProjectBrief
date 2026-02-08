@@ -1,0 +1,768 @@
+# StrengthQuest - Project Brief
+
+## Executive Summary
+
+**StrengthQuest** is a gamified strength training tracker that uses RPG/MMO leveling mechanics to motivate weightlifters. The core thesis: there's significant overlap between MMO grinders (particularly old-school Runescape players) and serious weightlifters - both appreciate granular progression systems, "number go up" satisfaction, and the meditative nature of consistent grinding toward long-term goals.
+
+**Target Audience:** Gamers (especially MMO players) who are already lifting weights, NOT aspirational fitness beginners.
+
+**Key Differentiator:** This is NOT a general fitness app. This is specifically for strength training with the big 3 lifts (Bench, Squat, Deadlift), with RPG-style progression systems that mirror old-school MMO mechanics.
+
+---
+
+## Product Positioning
+
+### Name Decision: StrengthQuest (NOT FitQuest)
+
+**Why StrengthQuest:**
+- Focus beats breadth for early-stage products
+- Strength training has clear, objective progression metrics
+- The entire leveling system is built for progressive overload
+- "StrengthQuest - RPG progression for lifters" = clear, differentiated, memeable
+- Can always expand to other fitness modalities later after dominating the niche
+
+**Why NOT FitQuest:**
+- "Fitness" is too broad and dilutes everything
+- Competes with Strava, Peloton, etc.
+- Cardio/yoga/HIIT have different psychology than the "grind" mentality
+- Makes the tier system incoherent across different modalities
+
+---
+
+## Core Game Mechanics (v0.1 Implementation)
+
+### Character System
+
+**Six Character Classes:**
+- Deadlift Knight
+- Bench Berserker
+- Bicep Bandit
+- Quad King
+- Grip Gladiator
+- Iron Titan
+
+**Character Attributes:**
+- Name (user-chosen)
+- Class (selected at creation)
+- Gender (affects tier thresholds)
+- Bodyweight in lbs (used for tier calculations)
+- Character Level = Average of three skill levels (rounded down)
+
+### Three Core Skills
+
+Each skill tracks a primary lift plus supporting exercises:
+
+| Skill | Primary Exercise | Color | Supporting Exercises |
+|-------|-----------------|-------|---------------------|
+| Push | Bench Press | Red | Incline Bench, Overhead Press, etc. |
+| Pull | Deadlift | Blue | Barbell Row, Pull-ups, etc. |
+| Legs | Squat | Green | Front Squat, Leg Press, etc. |
+
+**Important:** Only the primary exercises (Bench/Deadlift/Squat) contribute to tier calculations and Total Strength.
+
+### XP and Leveling System
+
+**XP Formula:**
+```
+Base XP = (Intensity × 5) + (Length in minutes ÷ 5)
+PR Bonus = +50 XP (awarded when new PR is achieved)
+```
+
+**Intensity:** 1-10 scale (user-selected per workout)
+**Length:** 5-120 minutes (user-selected per workout)
+
+**Level Thresholds:**
+
+| Level | XP Required | Total XP |
+|-------|-------------|----------|
+| 1 | 0 | 0 |
+| 2 | 50 | 50 |
+| 3 | 75 | 125 |
+| 4 | 100 | 225 |
+| 5 | 125 | 350 |
+| 6 | 150 | 500 |
+| 7 | 175 | 675 |
+| 8 | 200 | 875 |
+| 9 | 225 | 1100 |
+| 10 | 250 | 1350 |
+
+**Note on Level Progression:** Current progression may be too fast early game. Consider extending to level 50/100 or using exponential scaling to make milestones more meaningful (more similar to Runescape's long-term progression).
+
+### PR and 1RM System
+
+**Estimated 1RM Formula:**
+```
+1RM = Weight × (1 + (Reps / 30))
+```
+
+**Key Rules:**
+- Rep cap at 10 for calculation purposes (if reps > 10, uses 10 and notifies user)
+- PR determination based on calculated 1RM, not raw weight (allows PRs through increased reps)
+- Bodyweight exercises supported (0 lbs allowed for pull-ups, dips, etc.)
+- Top set identification: automatically identifies highest calculated 1RM set in each workout
+- Motivational messages for non-PR workouts showing comparison to current PR
+
+### Tier System
+
+Tiers based on bodyweight multiplier of 1RM. The tier names include Runescape references (Mithril, Dragon) which immediately signals to target audience.
+
+**Male Tier Thresholds:**
+
+| Tier | Squat | Bench | Deadlift |
+|------|-------|-------|----------|
+| Bronze | < 1.0× | < 0.75× | < 1.0× |
+| Iron | 1.0 – 1.25× | 0.75 – 1.0× | 1.0 – 1.5× |
+| Silver | 1.25 – 1.5× | 1.0 – 1.25× | 1.5 – 1.75× |
+| Gold | 1.5 – 1.75× | 1.25 – 1.5× | 1.75 – 2.25× |
+| Mithril | 1.75 – 2.5× | 1.5 – 2.0× | 2.25 – 3.0× |
+| Dragon | 2.5 – 2.75× | 2.0 – 2.25× | 3.0 – 3.25× |
+| Diamond | 2.75 – 3.0× | 2.25 – 2.5× | 3.25 – 3.5× |
+| Greek God | > 3.0× | > 2.5× | > 3.5× |
+
+**Female Tier Thresholds:**
+
+| Tier | Squat | Bench | Deadlift |
+|------|-------|-------|----------|
+| Bronze | < 0.75× | < 0.5× | < 1.0× |
+| Iron | 0.75 – 1.0× | 0.5 – 0.6× | 1.0 – 1.25× |
+| Silver | 1.0 – 1.25× | 0.6 – 0.75× | 1.25 – 1.5× |
+| Gold | 1.25 – 1.5× | 0.75 – 1.0× | 1.5 – 1.75× |
+| Mithril | 1.5 – 2.0× | 1.0 – 1.1× | 1.75 – 2.25× |
+| Dragon | 2.0 – 2.25× | 1.1 – 1.25× | 2.25 – 3.0× |
+| Diamond | 2.25 – 2.5× | 1.25 – 1.35× | 3.0 – 3.25× |
+| Greek God | > 2.25× | > 1.25× | > 3.0× |
+
+### Total Strength
+
+**Definition:** Sum of all three primary lift 1RMs (Bench + Deadlift + Squat)
+
+**Features:**
+- Has its own bodyweight multiplier
+- Has its own tier system (using same tier names)
+- Displayed prominently on dashboard
+- Functions as meta-stat / endgame metric
+
+---
+
+## App Structure (4-Tab Navigation)
+
+### 1. Dashboard Tab
+- Character summary card (name, class, level, bodyweight, Total Strength with tier)
+- Last workout timestamp
+- Quick-start workout buttons for each skill (Push/Pull/Legs)
+- XP progress bars showing progress to next level for each skill
+- Weekly workout summary (calendar view with workout count, volume, XP gained)
+- Next tier goal section
+
+### 2. Skills Tab
+- Three detailed skill cards (one for each: Push, Pull, Legs)
+- Each card shows:
+  - Current PR (weight × reps)
+  - Estimated 1RM
+  - Current tier with badge/icon
+  - Progress to next tier
+  - XP progress to next level
+  - Recent workout history for that skill
+
+### 3. History Tab
+- GitHub-style workout calendar (color-coded by skill type)
+- Visual streak tracking
+- Past workout details accessible by clicking dates
+
+### 4. Profile Tab
+- Character details (name, class, gender)
+- Bodyweight management (update current bodyweight)
+- Settings (future: notifications, units, etc.)
+
+---
+
+## Workout Logging Flow
+
+**Single-Page Workout Experience:**
+
+**Top Section (Workout Metadata):**
+- Date picker
+- Intensity slider (1-10)
+- Length input (5-120 minutes)
+
+**Exercise Logging:**
+- Add multiple exercises per workout session
+- Each exercise can have multiple sets
+- Per set: Weight (lbs) + Reps + Optional RPE (6-10 scale)
+- Automatic "top set" identification based on highest calculated 1RM
+- Visual indicator for which set was the "winning" set
+
+**Post-Workout:**
+- XP gained displayed prominently
+- Level up celebration if applicable
+- PR celebration with achievement if applicable
+- Motivational message if no PR (shows comparison to current PR)
+
+---
+
+## Current State (v0.1 Prototype)
+
+**What Exists:**
+- Built in V0 (web-based visual builder)
+- Works locally only
+- No database (data not persisted)
+- No authentication/login system
+- Basic UI functional but aesthetically plain
+- All core game mechanics implemented and working
+
+**What's Missing:**
+- Database persistence
+- User authentication
+- Deployment to live URL
+- More game-like visual design
+- Social features
+- Analytics/tracking
+
+---
+
+## Technical Migration Plan
+
+### Current State
+- V0 prototype works locally
+- No database persistence
+- No authentication
+- Need to move to production-ready setup
+
+### Key Technical Decisions to Make
+
+These decisions should be made collaboratively during development based on what makes sense as you build:
+
+**Database & Backend:**
+- Options to explore: Supabase, Convex, Firebase, or other solutions
+- Need to support: user data, workout history, character progression
+- Consider: ease of setup, free tier limits, real-time capabilities, authentication integration
+
+**Authentication:**
+- Start simple (email/password likely sufficient)
+- Can add OAuth providers later if needed
+- Should integrate cleanly with chosen database solution
+
+**Deployment:**
+- Need a live URL for testing and launch
+- Free tier important for MVP
+- Easy deployment process preferred
+
+**Tech Stack:**
+- V0 likely generated React/Next.js code
+- Port to local development environment
+- Maintain feature parity with prototype first
+
+### What Needs to Be Built
+
+**Core Infrastructure:**
+1. Database schema to persist all game data
+2. Authentication system for user accounts  
+3. API layer (or serverless functions) to handle game logic
+4. Deployment pipeline to get it live
+
+**Data Model Requirements:**
+At minimum, need to track:
+- Users and their characters (name, class, gender, bodyweight)
+- Skills and progression (XP, levels for Push/Pull/Legs)
+- Workouts (date, intensity, length, XP gained)
+- Exercises and sets (weight, reps, RPE, calculated 1RM)
+- Personal records and tier progression
+- Historical data for calendar/streak tracking
+
+**Specific schema design should be hashed out during implementation.**
+
+### Development Approach
+
+**Philosophy:**
+- Start with simplest solution that works
+- Avoid over-engineering
+- Choose boring, proven technology
+- Optimize for speed of iteration, not perfection
+
+**Priorities:**
+1. Get it working end-to-end (even if rough)
+2. Make it look game-like
+3. Deploy to production URL
+4. Test with real users
+5. Iterate based on feedback
+
+Technical implementation details should emerge from actual building, not upfront planning.
+
+---
+
+## Design Philosophy and Improvements Needed
+
+### Current State: Too Plain
+
+The v0.1 UI is functional but lacks the visual appeal necessary for a **gamified** application. For an app targeting gamers, aesthetic is part of the core value proposition.
+
+### What "Game-ified" Means Visually
+
+**Visual Hierarchy That Screams RPG:**
+- Character portrait more prominent (even if just icon/silhouette)
+- Skill cards should look like actual cards (think Hearthstone/MTG aesthetic)
+- Level ups need satisfying visual feedback
+- Tier badges should look like achievements/medals
+
+**Color and Depth:**
+- Current design is flat and gray
+- RPG UIs have depth, borders, slight gradients
+- Lean harder into skill colors (red Push, blue Pull, green Legs)
+- Add texture, shadows, borders
+
+**Typography Hierarchy:**
+- "Level 1 Deadlift Knight" should feel EPIC
+- Numbers (700 lbs, 3.78x BW) should pop
+- Progress bars should be chunkier, more game-like
+
+**Animation and Feedback:**
+- Level up animations
+- PR achievement celebrations
+- Smooth transitions
+- Satisfying micro-interactions
+
+### Design Inspiration Sources
+- Habitica (gamified habit tracker)
+- Duolingo (achievement system, streaks)
+- Old Runescape UI (skill cards, level up notifications)
+- WoW character sheets (stat displays)
+- Hearthstone/MTG (card aesthetics)
+
+### Time-Boxed Redesign Approach
+
+**Day 1:** Gather inspiration
+- Screenshot 5-10 UI examples from above sources
+- Identify specific elements to incorporate
+
+**Day 2:** Rebuild core screens
+- Dashboard
+- Skills page
+- Workout logging flow
+- Focus on screens users see most
+
+**Day 3:** Polish and test
+- Fix bugs
+- Ensure responsiveness
+- Test on mobile
+
+**Then ship.** Don't let perfect be the enemy of good.
+
+---
+
+## Features to Add Soon (Post-Launch)
+
+### Quick Wins
+
+**Milestone Celebrations:**
+- First time hitting new tier = full-screen animation
+- "Achievement Unlocked" style notifications
+- Shareable graphics for social media
+
+**Estimated Time to Next Tier:**
+- "Based on your progress, you'll hit Gold in Bench in ~8 weeks"
+- Provides motivation and clear goals
+
+**Exercise Variety Incentives:**
+- Achievement badges for accessory work
+- "Completed 50 total sets of Bicep Curls - unlocked 'Arm Day Enthusiast' badge"
+- Doesn't affect tiers but provides additional engagement
+
+**Weekly Summary Push Notification:**
+- "You trained 4 times this week and gained 2 levels in Push!"
+- Critical for retention
+
+### Social Features (Later)
+
+**Leaderboards:**
+- By Total Strength
+- By individual lift tiers
+- By character class
+
+**Friend System:**
+- Add gym buddies
+- Compare progress
+- Friendly competition
+
+**Guild/Clan System:**
+- Team-based challenges
+- Shared goals
+- Community building
+
+---
+
+## Monetization Strategy
+
+### Phase 1: Free to Build Audience (Weeks 1-4)
+- Launch completely free
+- Focus on getting 100+ active users
+- Measure 7-day and 30-day retention
+- Learn what features drive engagement
+
+### Phase 2: Introduce Premium (After Validation)
+
+**Metrics to Hit Before Monetizing:**
+- 100+ active users logging workouts weekly
+- 30-day retention >40%
+- Clear feature requests that justify paid tier
+
+**Freemium Model (Recommended):**
+
+**Free Tier:**
+- Basic tracking for the big 3 lifts
+- Character creation and leveling
+- History/calendar view
+- Single user experience
+
+**Premium ($10/month):**
+- Unlimited exercises (not just big 3)
+- Advanced statistics and analytics
+- Cosmetic unlocks (character customization)
+- Leaderboards and social features
+- Custom workout programs
+- Export data
+- No ads (if free tier has them)
+
+**Alternative: Lifetime Deal**
+- Offer early adopters lifetime access ($99-199)
+- Creates immediate cash flow
+- Builds loyal core user base
+- Can grandfather these users when switching to subscription
+
+**Note:** Classic MMO freemium model works well here - free to play, pay for cosmetics and advanced features.
+
+---
+
+## Go-to-Market Strategy
+
+### Week 1: Initial Launch
+
+**Target Platforms:**
+1. **r/weightroom** - "I built a Runescape-style tracker for the big 3 lifts"
+2. **r/powerlifting** - Serious lifters who track everything
+3. **r/bodybuilding** - Aesthetic-focused but appreciate progression
+4. **Gaming fitness Discord servers** - Direct crossover audience
+5. **Bodybuilding forums** - Old school crowd that remembers Runescape
+
+**Launch Post Template:**
+- Lead with a screenshot of YOUR character hitting a new tier
+- "After 6 weeks of tracking, my Deadlift Knight just hit Gold tier"
+- Be transparent it's v0.1
+- Explicitly ask for feedback
+- Make signup dead simple (<30 seconds)
+
+**Critical Success Factors:**
+- Onboarding must be friction-free
+- First workout log must take <2 minutes
+- App must not crash
+- Core loop (log workout → see level up) must feel satisfying
+
+### Week 2: Iterate Based on Feedback
+
+**Watch For:**
+- What breaks most often
+- What features people immediately ask for vs. actually use
+- Where people drop off in the flow
+- Retention metrics (7-day, 14-day, 30-day)
+
+**Talk To Power Users:**
+- Anyone who uses it 3+ times = power user
+- Their behavior > everyone's opinions
+- Ask what would make them pay for it
+
+### Distribution Channels to Explore Later
+- Fitness YouTubers who game
+- Twitch streamers who lift
+- Gaming conventions with fitness areas
+- Powerlifting meet sponsorships
+- College strength & conditioning programs
+
+---
+
+## Key Metrics to Track
+
+### Activation Metrics
+- Signup to first workout logged (target: >60%)
+- Time to first workout logged (target: <5 minutes)
+- Completion rate of first workout log (target: >80%)
+
+### Engagement Metrics
+- Workouts logged per week (target: 3-4 for active users)
+- 7-day retention (target: >50%)
+- 30-day retention (target: >40%)
+- 90-day retention (target: >30%)
+
+### Progression Metrics
+- Average time to first level up
+- Average time to first tier upgrade
+- Distribution of user levels/tiers
+- PR frequency
+
+### Social Proof Metrics
+- Screenshots shared
+- Reddit post upvotes/engagement
+- Referrals from existing users
+
+---
+
+## Risks and Mitigation Strategies
+
+### Risk: Niche Too Small
+**Validation:** Need to prove 5,000+ potential users exist (at $10/mo = $600k ARR)
+**Mitigation:** Early launch will reveal market size quickly. If too small, can expand to "FitQuest" with other modalities
+
+### Risk: Gamers Talk About Fitness More Than They Do It
+**Validation:** Track ratio of signups to active users (>30% = good signal)
+**Mitigation:** Focus marketing on people ALREADY lifting AND gaming, not aspirational
+
+### Risk: Retention Drops After 90 Days
+**Validation:** Standard fitness app problem, but "grind mentality" might help
+**Mitigation:** Design for long-term goals (maxing a skill takes months), add endgame content (leaderboards, achievements)
+
+### Risk: Competitors Copy the Idea
+**Mitigation:** 
+- Move fast and own the niche before big players notice
+- Build community and network effects
+- Your unfair advantage is being the user - you understand both worlds intimately
+
+### Risk: Over-Engineering Before Validation
+**Mitigation:**
+- Time-box all development work
+- Ship embarrassingly minimal versions
+- Only build what's needed for core loop
+- Kill features that don't drive retention
+
+---
+
+## Success Criteria (6-Month Milestones)
+
+### Month 1: Validation
+- 100+ signups
+- 50+ active users (logging workouts weekly)
+- 30-day retention >30%
+- Core loop validated (people come back)
+
+### Month 3: Growth
+- 500+ active users
+- 30-day retention >40%
+- Clear understanding of premium features users want
+- Profitable unit economics (if monetizing)
+
+### Month 6: Scale
+- 2,000+ active users
+- 30-day retention >45%
+- $10k+ MRR (if monetized)
+- Community forming organically
+- Clear roadmap for next features
+
+---
+
+## Development Phases
+
+### Phase 1: MVP (Weeks 1-2)
+**Goal:** Live URL with basic functionality
+
+**Must-Have:**
+- User auth (email/password)
+- Character creation
+- Workout logging (big 3 only)
+- XP/leveling system working
+- Tier calculations correct
+- Basic dashboard and skills view
+- Deployed to production URL
+
+**Success Metric:** 10 people can create accounts and log workouts without hand-holding
+
+### Phase 2: Polish (Week 3)
+**Goal:** Make it look game-like
+
+**Focus:**
+- Redesign UI to be more RPG-like
+- Add animations for level ups
+- Add visual feedback for PRs
+- Improve mobile responsiveness
+- Add workout history/calendar
+
+**Success Metric:** Users say "this looks cool" not "this looks like a spreadsheet"
+
+### Phase 3: Public Launch (Week 4)
+**Goal:** Ship to Reddit and collect feedback
+
+**Activities:**
+- Launch posts on target subreddits
+- Respond to every comment
+- Fix critical bugs quickly
+- Monitor analytics obsessively
+- Interview active users
+
+**Success Metric:** 100+ signups, 50+ active users
+
+### Phase 4: Iterate (Weeks 5-8)
+**Goal:** Improve based on real user behavior
+
+**Focus:**
+- Build most-requested features
+- Optimize retention drop-off points
+- Add social features if requested
+- Consider monetization if metrics hit targets
+
+**Success Metric:** 30-day retention >40%, clear path to monetization
+
+---
+
+## Unfair Advantages
+
+1. **You are the target user** - Deep understanding of both MMO grinding psychology and weightlifting progression
+2. **Clear niche thesis** - Specific and testable, not vague
+3. **Fast iteration capability** - Can ship features in days with modern tools
+4. **Timing** - Vibe coding makes solo development viable, gamification in fitness still unsolved for this niche
+
+---
+
+## Things NOT to Build (Feature Creep Prevention)
+
+### Don't Build Until Users Ask:
+- AI coaching/recommendations
+- Nutrition tracking
+- Cardio/conditioning tracking
+- Video form checks
+- Workout program templates
+- Integration with other apps
+- Hardware (smart watches, sensors)
+
+### Don't Build Until Scale:
+- Mobile apps (web app works fine for MVP)
+- Complex social features (guilds, messaging)
+- Marketplace/economy features
+- Advanced analytics/data science
+
+### Never Build:
+- Features that dilute the core focus
+- Anything users don't explicitly want
+- Solutions looking for problems
+
+---
+
+## Philosophy and Principles
+
+### Product Philosophy
+- **Focus beats breadth** - Own one thing completely before expanding
+- **Execution > ideas** - Implementation quality matters more than feature count
+- **Core loop first** - Everything serves the main progression experience
+- **Real users > assumptions** - Ship early, measure behavior, iterate
+
+### Development Philosophy
+- **Simplicity first** - Choose boring technology that works
+- **Ship > perfect** - Done is better than perfect
+- **Time-box everything** - Prevent scope creep and perfectionism
+- **Delete aggressively** - Remove features that don't drive retention
+
+### Community Philosophy
+- **Serve the niche** - Make 1,000 people love it vs. 100,000 people like it
+- **Be transparent** - Share the journey, admit limitations
+- **Listen to power users** - Behavior > opinions, but engaged users know best
+- **Build in public** - Community involvement creates investment
+
+---
+
+## Questions to Answer With Real Users
+
+1. **Does the three-skill system feel right, or do people want more granularity?**
+   - Watch for requests for specific muscle group tracking
+   - Balance: too many skills dilutes progression feeling
+
+2. **Is the character class meaningful or just flavor?**
+   - Currently cosmetic - should it have perks/bonuses?
+   - Or is identity alone sufficient?
+
+3. **What's the first drop-off point?**
+   - Create account but never log workout?
+   - Log once and never return?
+   - Engage for 2 weeks then disappear?
+
+4. **What features drive retention vs. what sounds cool?**
+   - Social features might be requested but not used
+   - Analytics might be used but not requested
+
+5. **What would make someone pay $10/month?**
+   - Beyond tracking capability, what's the value?
+   - Social visibility? UI beauty? Automated tracking?
+
+---
+
+## Contact Points and Resources
+
+### When Stuck
+- Review this brief
+- Look at Runescape wikis for progression system inspiration
+- Check r/weightroom for how serious lifters think
+- Test the core loop: does logging a workout feel satisfying?
+
+### Key Resources
+- Supabase docs: https://supabase.com/docs
+- Vercel deployment: https://vercel.com/docs
+- Runescape skill system: https://oldschool.runescape.wiki/w/Skills
+- Strength standards: https://strengthlevel.com
+
+### User Research
+- r/weightroom daily threads
+- Bodybuilding.com forums
+- Renaissance Periodization community
+- Barbell Medicine community
+
+---
+
+## Next Immediate Steps
+
+1. **Port V0 code to local development environment**
+   - Get it running in VS Code
+   - Ensure feature parity
+
+2. **Set up Supabase project**
+   - Create database
+   - Design schema
+   - Set up authentication
+
+3. **Deploy to Vercel**
+   - Get live URL working
+   - Test auth flow end-to-end
+
+4. **Time-boxed UI redesign (3 days max)**
+   - Gather visual inspiration
+   - Rebuild core screens with game-like aesthetic
+   - Focus on dashboard and skills views
+
+5. **Soft launch to 10 friends**
+   - Get honest feedback on UX and aesthetics
+   - Fix critical bugs
+   - Validate core loop feels good
+
+6. **Public launch to Reddit**
+   - Post to target subreddits
+   - Respond to feedback
+   - Monitor metrics obsessively
+
+---
+
+## Closing Thoughts
+
+This is a strong idea with clear product-market fit potential. The thesis (MMO grinders overlap with weightlifters) is specific and testable. The prototype already exists and works. The tools to ship quickly are available.
+
+The only way to fail is to not ship.
+
+Focus on:
+1. Getting it live with basic functionality
+2. Making it look game-like enough to match the concept
+3. Putting it in front of 100 real users
+4. Listening to what they do, not just what they say
+
+Everything else is details.
+
+The niche is real. The timing is right. The execution is yours.
+
+Now go make some MMO grinders stronger.
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** February 3, 2026  
+**Status:** Ready for Development
