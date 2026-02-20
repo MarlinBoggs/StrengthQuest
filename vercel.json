@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd strengthquest && npm run build",
+  "outputDirectory": "strengthquest/.next",
+  "installCommand": "cd strengthquest && npm install",
+  "devCommand": "cd strengthquest && npm run dev"
+}
