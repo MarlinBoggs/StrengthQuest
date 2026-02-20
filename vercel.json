@@ -1,6 +1,18 @@
 {
-  "buildCommand": "cd strengthquest && npm run build",
-  "outputDirectory": "strengthquest/.next",
-  "installCommand": "cd strengthquest && npm install",
-  "devCommand": "cd strengthquest && npm run dev"
+  "version": 2,
+  "builds": [
+    {
+      "src": "strengthquest/package.json",
+      "use": "@vercel/next",
+      "config": {
+        "zeroConfig": true
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "strengthquest/$1"
+    }
+  ]
 }
