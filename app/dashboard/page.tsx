@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { XP_THRESHOLDS } from '@/lib/utils/xp-thresholds'
+import AvatarPortrait from './AvatarPortrait'
 
 interface TierEntry {
   name: string
@@ -48,6 +49,7 @@ export default async function DashboardPage() {
   const activeSkills = userSkills?.filter((us: any) => us.skills.is_active) ?? []
   const inactiveSkills = userSkills?.filter((us: any) => !us.skills.is_active) ?? []
   const className = (character.character_classes as any)?.name ?? 'Unknown Class'
+  const classSlug = className.toLowerCase().replace(/\s+/g, '-')
 
   // Group exercise PRs by skill_id
   const prsBySkill: Record<number, Array<{ exercise_id: number; exercise_name: string; is_primary: boolean; best_1rm: number; best_weight: number; best_reps: number; max_weight_lifted: number }>> = {}
@@ -150,6 +152,9 @@ export default async function DashboardPage() {
             className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none"
             style={{ background: 'var(--gold)', transform: 'translate(30%, -30%)' }}
           />
+
+          {/* Character Avatar */}
+          <AvatarPortrait src={`/avatars/${classSlug}.png`} alt={className} />
 
           <div className="relative">
             {/* Class/Level badge */}
