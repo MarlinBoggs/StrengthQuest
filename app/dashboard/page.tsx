@@ -17,6 +17,8 @@ interface TierProgressResult {
   nextTierName: string
   lbsNeeded: number
   progressPct: number
+  currentMultiplier: number
+  nextMultiplier: number
 }
 
 export default async function DashboardPage() {
@@ -108,7 +110,7 @@ export default async function DashboardPage() {
           )
         : 0
 
-    return { nextTierName: nextTier.name, lbsNeeded, progressPct }
+    return { nextTierName: nextTier.name, lbsNeeded, progressPct, currentMultiplier, nextMultiplier }
   }
 
   return (
@@ -223,6 +225,7 @@ export default async function DashboardPage() {
 
               // Tier progress
               const primaryPr = skillPrs.find((p: any) => p.is_primary)
+              const accessoryPrs = skillPrs.filter((p: any) => !p.is_primary)
               const tierProgress = computeTierProgress(
                 skill.tier_thresholds as TierThresholds | null,
                 primaryPr?.best_1rm,
@@ -300,73 +303,109 @@ export default async function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Tier Progress */}
-                    {tierProgress && (
-                      <div className="mb-4">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <span
-                            className="text-[10px] uppercase tracking-wider font-semibold"
-                            style={{ color: 'var(--text-muted)' }}
-                          >
-                            Next Tier
-                          </span>
-                          <span className="text-xs font-semibold" style={{ color: colorHex }}>
-                            {tierProgress.nextTierName}
-                          </span>
-                        </div>
-                        <div
-                          className="w-full rounded-full overflow-hidden"
-                          style={{ height: '3px', background: 'var(--bg-elevated)' }}
-                        >
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${tierProgress.progressPct}%`,
-                              backgroundColor: colorHex,
-                              opacity: 0.6,
-                            }}
-                          />
-                        </div>
-                        <p className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                          ~{tierProgress.lbsNeeded} lbs to{' '}
-                          <span className="font-semibold" style={{ color: colorHex }}>
-                            {tierProgress.nextTierName}
-                          </span>
+                    {/* Hero Lift */}
+                    {primaryPr && (
+                      <div
+                        className="rounded-lg p-3 mb-3"
+                        style={{
+                          background: `${colorHex}0a`,
+                          borderLeft: `3px solid ${colorHex}`,
+                        }}
+                      >
+                        {/* Name */}
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: colorHex }}>
+                          ⚔ {primaryPr.exercise_name}
                         </p>
+
+                        {/* Best set + max weight */}
+                        <div className="flex justify-between items-baseline mb-0.5">
+                          <span className="text-sm font-bold" style={{ color: 'var(--gold)' }}>
+                            {primaryPr.best_weight} × {primaryPr.best_reps}
+                          </span>
+                          {primaryPr.max_weight_lifted && (
+                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                              Max:{' '}
+                              <span className="font-semibold" style={{ color: 'var(--gold)' }}>
+                                {primaryPr.max_weight_lifted} lbs
+                              </span>{' '}
+                              <span style={{ color: 'var(--text-muted)' }}>
+                                ({(primaryPr.max_weight_lifted / character.bodyweight_lbs).toFixed(2)}x BW)
+                              </span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Est. 1RM + current multiplier */}
+                        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                          Est. ~{Math.round(primaryPr.best_1rm)} lb 1RM
+                          {tierProgress && (
+                            <span className="ml-1">
+                              ·{' '}
+                              <span style={{ color: 'var(--text-secondary)' }}>
+                                {tierProgress.currentMultiplier.toFixed(2)}x BW
+                              </span>
+                            </span>
+                          )}
+                        </p>
+
+                        {/* Tier progress bar + next tier label */}
+                        {tierProgress && (
+                          <>
+                            <div
+                              className="flex justify-between text-[10px] mb-1"
+                              style={{ color: 'var(--text-muted)' }}
+                            >
+                              <span>{us.current_tier ?? '—'}</span>
+                              <span style={{ color: colorHex }}>
+                                {tierProgress.nextTierName}: {tierProgress.nextMultiplier.toFixed(2)}x BW
+                              </span>
+                            </div>
+                            <div
+                              className="w-full rounded-full overflow-hidden mb-1"
+                              style={{ height: '3px', background: 'var(--bg-elevated)' }}
+                            >
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${tierProgress.progressPct}%`,
+                                  backgroundColor: colorHex,
+                                  opacity: 0.7,
+                                }}
+                              />
+                            </div>
+                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                              ~{tierProgress.lbsNeeded} lbs to{' '}
+                              <span className="font-semibold" style={{ color: colorHex }}>
+                                {tierProgress.nextTierName}
+                              </span>
+                            </p>
+                          </>
+                        )}
                       </div>
                     )}
 
-                    {/* Per-exercise PRs */}
-                    {skillPrs.length > 0 && (
-                      <div
-                        className="pt-3 space-y-1.5"
-                        style={{ borderTop: '1px solid var(--border-subtle)' }}
-                      >
-                        <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
-                          PRs
+                    {/* Accessories */}
+                    {accessoryPrs.length > 0 && (
+                      <div className="space-y-1">
+                        <span
+                          className="text-[10px] uppercase tracking-wider font-semibold"
+                          style={{ color: 'var(--text-muted)' }}
+                        >
+                          Accessories
                         </span>
-                        {skillPrs.map((pr) => (
+                        {accessoryPrs.map((pr) => (
                           <div key={pr.exercise_id} className="flex justify-between items-center">
                             <span className="text-xs truncate mr-2" style={{ color: 'var(--text-secondary)' }}>
                               {pr.exercise_name}
                             </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span
-                                className="text-sm font-bold"
-                                style={{ color: 'var(--gold)' }}
-                                title={pr.is_primary ? `~${Math.round(pr.best_1rm)} lb est. 1RM` : undefined}
-                              >
-                                {pr.best_weight} x {pr.best_reps}
-                              </span>
-                              {pr.is_primary && pr.max_weight_lifted && (
-                                <>
-                                  <span style={{ color: 'var(--border-default)' }}>|</span>
-                                  <span className="text-sm font-bold" style={{ color: 'var(--gold)' }}>
-                                    {pr.max_weight_lifted} max
-                                  </span>
-                                </>
+                            <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--gold)' }}>
+                              {pr.best_weight} × {pr.best_reps}
+                              {pr.max_weight_lifted && character.bodyweight_lbs && (
+                                <span className="ml-1.5 font-normal" style={{ color: 'var(--text-muted)' }}>
+                                  ({(pr.max_weight_lifted / character.bodyweight_lbs).toFixed(2)}x)
+                                </span>
                               )}
-                            </div>
+                            </span>
                           </div>
                         ))}
                       </div>
