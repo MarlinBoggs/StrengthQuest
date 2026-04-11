@@ -26,9 +26,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${barlow.variable} ${cinzel.variable} antialiased`}
-      >
+      {/* Prevent theme flash: set data-theme before first paint */}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('sq-theme');if(t==='dark-rpg')document.documentElement.setAttribute('data-theme','dark-rpg');}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className={`${barlow.variable} ${cinzel.variable} antialiased`}>
         {children}
       </body>
     </html>

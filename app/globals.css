@@ -38,6 +38,35 @@
   --noise-opacity: 0.04;
 }
 
+/* Dark RPG theme override (Diablo/WoW armory) */
+[data-theme="dark-rpg"] {
+  --bg-abyss: #06060b;
+  --bg-base: #0c0c14;
+  --bg-card: #12121e;
+  --bg-elevated: #1a1a2e;
+  --bg-input: #16162a;
+
+  --border-highlight: #3a3a5e;
+  --border-mid: #2a2a4a;
+  --border-shadow: #06060b;
+  --border-subtle: #1e1e3a;
+  --border-default: #2a2a4a;
+  --border-strong: #3a3a5e;
+
+  --text-primary: #e8e6f0;
+  --text-secondary: #8a87a0;
+  --text-muted: #5c5a6e;
+
+  --gold: #f0b429;
+  --gold-bright: #fcd34d;
+  --gold-dim: #b8860b;
+  --gold-glow: rgba(240, 180, 41, 0.3);
+
+  --pr-gold: #f0b429;
+  --tier-purple: #a855f7;
+  --levelup-emerald: #34d399;
+}
+
 @theme inline {
   --color-background: var(--bg-base);
   --color-foreground: var(--text-primary);

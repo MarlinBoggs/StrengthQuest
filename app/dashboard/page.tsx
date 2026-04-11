@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { XP_THRESHOLDS } from '@/lib/utils/xp-thresholds'
 import AvatarPortrait from './AvatarPortrait'
+import ThemeToggle from '@/app/components/ThemeToggle'
 
 interface TierEntry {
   name: string
@@ -126,6 +127,7 @@ export default async function DashboardPage() {
               <span style={{ color: 'var(--text-primary)' }}>Quest</span>
             </h1>
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 {character.name}_{className}
               </span>
