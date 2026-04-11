@@ -198,11 +198,28 @@ export default async function DashboardPage() {
                   </p>
                   {activeSkills.some((us: any) => prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)) && (
                     <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {activeSkills
+                      {(
+                        // SBD order: Squat · Bench · Deadlift
+                        [...activeSkills].sort((a: any, b: any) => {
+                          const rank = (us: any) => {
+                            const name = (prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)?.exercise_name ?? '').toLowerCase()
+                            if (name.includes('squat')) return 0
+                            if (name.includes('bench')) return 1
+                            if (name.includes('deadlift')) return 2
+                            return 3
+                          }
+                          return rank(a) - rank(b)
+                        }) as any[]
+                      )
                         .map((us: any) => {
                           const pr = prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)
                           if (!pr) return null
-                          return `${us.skills.name} ${pr.max_weight_lifted ?? pr.best_weight}`
+                          const name = pr.exercise_name.toLowerCase()
+                          const short = name.includes('squat') ? 'Squat'
+                            : name.includes('bench') ? 'Bench'
+                            : name.includes('deadlift') ? 'Deadlift'
+                            : pr.exercise_name.split(' ')[0]
+                          return `${short} ${pr.max_weight_lifted ?? pr.best_weight}`
                         })
                         .filter(Boolean)
                         .join(' · ')}
