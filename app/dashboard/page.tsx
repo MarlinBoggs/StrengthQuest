@@ -118,7 +118,7 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-abyss)' }}>
       {/* Navbar */}
-      <nav style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+      <nav style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-mid)' }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-14 items-center">
             <h1 className="font-display text-lg tracking-widest uppercase">
@@ -132,8 +132,13 @@ export default async function DashboardPage() {
               <form action="/auth/signout" method="post">
                 <button
                   type="submit"
-                  className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
-                  style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-sm transition-colors"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-elevated)',
+                    boxShadow: 'inset 1px 1px 0 var(--border-highlight), inset -1px -1px 0 var(--border-shadow), 0 0 0 1px var(--border-mid)',
+                    borderRadius: '2px',
+                  }}
                 >
                   Sign out
                 </button>
@@ -147,11 +152,6 @@ export default async function DashboardPage() {
 
         {/* Character Hero */}
         <div className="card-dark p-6 sm:p-8 relative overflow-hidden">
-          {/* Subtle radial glow */}
-          <div
-            className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none"
-            style={{ background: 'var(--gold)', transform: 'translate(30%, -30%)' }}
-          />
 
           {/* Character Avatar */}
           <AvatarPortrait src={`/avatars/${classSlug}.png`} alt={className} />
@@ -160,11 +160,12 @@ export default async function DashboardPage() {
             {/* Class/Level badge */}
             <div className="mb-3">
               <span
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-display text-xs font-bold tracking-wider uppercase"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 font-display text-xs font-bold tracking-wider uppercase"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(240,180,41,0.15) 0%, rgba(240,180,41,0.05) 100%)',
-                  border: '1px solid rgba(240,180,41,0.3)',
+                  background: 'var(--bg-elevated)',
                   color: 'var(--gold-bright)',
+                  boxShadow: 'inset 1px 1px 0 var(--border-highlight), inset -1px -1px 0 var(--border-shadow), 0 0 0 1px var(--border-mid)',
+                  borderRadius: '2px',
                 }}
               >
                 ⚔ {className} · Level {character.character_level}
@@ -182,7 +183,7 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center justify-between mt-6 pt-4 relative" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center justify-between mt-6 pt-4 relative" style={{ borderTop: '1px solid var(--border-mid)' }}>
             <div>
               {character.total_strength_1rm > 0 ? (
                 <div>
@@ -207,7 +208,7 @@ export default async function DashboardPage() {
             </div>
             <a
               href="/log-workout"
-              className="btn-gold px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider"
+              className="btn-gold px-6 py-2.5 rounded-sm text-sm font-bold uppercase tracking-wider"
             >
               ⚔ Log Workout
             </a>
@@ -251,16 +252,9 @@ export default async function DashboardPage() {
                   key={us.skill_id}
                   className="skill-card p-5 relative overflow-hidden"
                   style={{
-                    borderLeftWidth: '3px',
-                    borderLeftColor: colorHex,
-                    boxShadow: `0 0 20px ${colorHex}15, 0 0 60px ${colorHex}08`,
+                    borderTop: `3px solid ${colorHex}`,
                   }}
                 >
-                  {/* Faint glow in top-left corner */}
-                  <div
-                    className="absolute top-0 left-0 w-24 h-24 rounded-full blur-2xl opacity-10 pointer-events-none"
-                    style={{ background: colorHex, transform: 'translate(-50%, -50%)' }}
-                  />
 
                   <div className="relative">
                     {/* Header */}
@@ -270,11 +264,12 @@ export default async function DashboardPage() {
                       </h4>
                       {us.current_tier && (
                         <span
-                          className="text-xs font-bold px-2 py-0.5 rounded font-display tracking-wide"
+                          className="text-xs font-bold px-2 py-0.5 font-display tracking-wide"
                           style={{
-                            background: `${colorHex}20`,
+                            background: 'var(--bg-elevated)',
                             color: colorHex,
-                            border: `1px solid ${colorHex}30`,
+                            boxShadow: 'inset 1px 1px 0 var(--border-highlight), inset -1px -1px 0 var(--border-shadow), 0 0 0 1px var(--border-mid)',
+                            borderRadius: '2px',
                           }}
                         >
                           {us.current_tier}
@@ -311,10 +306,12 @@ export default async function DashboardPage() {
                     {/* Hero Lift */}
                     {primaryPr && (
                       <div
-                        className="rounded-lg p-3 mb-3"
+                        className="p-3 mb-3"
                         style={{
-                          background: `${colorHex}0a`,
+                          background: 'var(--bg-elevated)',
                           borderLeft: `3px solid ${colorHex}`,
+                          boxShadow: 'inset 1px 1px 0 var(--border-highlight), inset -1px -1px 0 var(--border-shadow)',
+                          borderRadius: '2px',
                         }}
                       >
                         {/* Name */}

@@ -62,10 +62,12 @@ export default function LoginPage() {
           <form className="space-y-5" onSubmit={handleAuth}>
             {error && (
               <div
-                className="rounded-lg p-4"
+                className="p-4"
                 style={{
-                  background: 'rgba(220, 38, 38, 0.1)',
-                  border: '1px solid rgba(220, 38, 38, 0.3)',
+                  background: 'var(--bg-elevated)',
+                  borderLeft: '3px solid #c03030',
+                  boxShadow: 'inset 1px 1px 0 var(--border-highlight), inset -1px -1px 0 var(--border-shadow)',
+                  borderRadius: '2px',
                 }}
               >
                 <p className="text-sm font-medium" style={{ color: '#fca5a5' }}>{error}</p>
@@ -82,7 +84,7 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="input-dark w-full px-3 py-2.5 rounded-lg text-sm"
+                className="input-dark w-full px-3 py-2.5 rounded-sm text-sm"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -99,7 +101,7 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="input-dark w-full px-3 py-2.5 rounded-lg text-sm"
+                className="input-dark w-full px-3 py-2.5 rounded-sm text-sm"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -109,7 +111,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-gold w-full py-3 rounded-lg text-sm font-bold uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+              className="btn-gold w-full py-3 rounded-sm text-sm font-bold uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
             >
               {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </button>

@@ -3,34 +3,39 @@
 :root {
   color-scheme: dark;
 
-  /* Base palette — forge/armory dark */
-  --bg-abyss: #06060b;
-  --bg-base: #0c0c14;
-  --bg-card: #12121e;
-  --bg-elevated: #1a1a2e;
-  --bg-input: #16162a;
-  --border-subtle: #1e1e3a;
-  --border-default: #2a2a4a;
-  --border-strong: #3a3a5e;
+  /* OSRS-inspired earthy palette */
+  --bg-abyss: #0e0c08;
+  --bg-base: #181309;
+  --bg-card: #2a2318;
+  --bg-elevated: #342c1e;
+  --bg-input: #1e1812;
 
-  /* Text */
-  --text-primary: #e8e6f0;
-  --text-secondary: #8a87a0;
-  --text-muted: #5c5a6e;
+  /* Chiseled bevel borders (OSRS panel style) */
+  --border-highlight: #6a5c3e;   /* top/left light edge */
+  --border-mid: #3d3220;         /* main border */
+  --border-shadow: #0f0c07;      /* bottom/right dark edge */
+  --border-subtle: #2a2318;
+  --border-default: #3d3220;
+  --border-strong: #6a5c3e;
 
-  /* Gold — molten, not flat */
-  --gold: #f0b429;
-  --gold-bright: #fcd34d;
-  --gold-dim: #b8860b;
-  --gold-glow: rgba(240, 180, 41, 0.3);
+  /* Text — parchment & cream */
+  --text-primary: #ffe8c0;
+  --text-secondary: #c8a96e;
+  --text-muted: #7a6040;
+
+  /* OSRS orange-gold */
+  --gold: #ff981f;
+  --gold-bright: #ffb83f;
+  --gold-dim: #c06010;
+  --gold-glow: rgba(255, 152, 31, 0.2);
 
   /* Achievement colors */
-  --pr-gold: #f0b429;
-  --tier-purple: #a855f7;
-  --levelup-emerald: #34d399;
+  --pr-gold: #ff981f;
+  --tier-purple: #9060c0;
+  --levelup-emerald: #36b54a;
 
-  /* Noise overlay */
-  --noise-opacity: 0.03;
+  /* Noise opacity */
+  --noise-opacity: 0.04;
 }
 
 @theme inline {
@@ -42,14 +47,13 @@
   --font-display: var(--font-cinzel);
 }
 
-/* Base body */
 body {
   background: var(--bg-abyss);
   color: var(--text-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Subtle noise texture overlay on all pages */
+/* Parchment grain texture */
 body::before {
   content: '';
   position: fixed;
@@ -57,28 +61,37 @@ body::before {
   z-index: 9999;
   pointer-events: none;
   opacity: var(--noise-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-repeat: repeat;
 }
 
-/* Cinzel display font utility */
 .font-display {
   font-family: var(--font-cinzel), serif;
   letter-spacing: 0.04em;
 }
 
-/* Gold glow button */
+/* OSRS-style raised button */
 .btn-gold {
-  background: linear-gradient(135deg, var(--gold-dim) 0%, var(--gold) 50%, var(--gold-bright) 100%);
-  color: #0c0c14;
+  background: linear-gradient(180deg, #c07820 0%, #8a5010 60%, #c07820 100%);
+  color: #ffe8c0;
   font-weight: 700;
-  border: 1px solid var(--gold);
-  box-shadow: 0 0 20px var(--gold-glow), 0 0 60px rgba(240, 180, 41, 0.1);
-  transition: all 0.2s ease;
+  border: none;
+  box-shadow:
+    inset 1px 1px 0 #ffb83f,
+    inset -1px -1px 0 #3d2000,
+    0 2px 0 #0f0c07;
+  transition: filter 0.1s ease, transform 0.1s ease;
 }
 .btn-gold:hover {
-  box-shadow: 0 0 30px var(--gold-glow), 0 0 80px rgba(240, 180, 41, 0.15);
+  filter: brightness(1.15);
   transform: translateY(-1px);
+}
+.btn-gold:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 1px 1px 0 #3d2000,
+    inset -1px -1px 0 #ffb83f,
+    0 0 0 #0f0c07;
 }
 .btn-gold:disabled {
   opacity: 0.4;
@@ -87,51 +100,64 @@ body::before {
   box-shadow: none;
 }
 
-/* Card panel */
+/* OSRS-style chiseled panel */
 .card-dark {
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
+  border-radius: 2px;
+  box-shadow:
+    inset 1px 1px 0 var(--border-highlight),
+    inset -1px -1px 0 var(--border-shadow),
+    0 0 0 1px var(--border-mid);
 }
 
-/* XP bar glow effect */
+/* XP bar — OSRS style: rectangular, no rounded corners */
 .xp-bar-track {
   background: var(--bg-abyss);
-  border: 1px solid var(--border-subtle);
-  border-radius: 9999px;
+  border-radius: 1px;
   height: 8px;
   overflow: hidden;
+  box-shadow:
+    inset 1px 1px 0 rgba(0,0,0,0.8),
+    inset -1px -1px 0 rgba(255,255,255,0.04);
 }
 .xp-bar-fill {
   height: 100%;
-  border-radius: 9999px;
+  border-radius: 1px;
   transition: width 0.6s ease;
-  box-shadow: 0 0 8px currentColor;
 }
 
-/* Skill glow card */
+/* Skill card */
 .skill-card {
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 2px;
+  box-shadow:
+    inset 1px 1px 0 var(--border-highlight),
+    inset -1px -1px 0 var(--border-shadow),
+    0 0 0 1px var(--border-mid);
+  transition: filter 0.2s ease;
 }
 .skill-card:hover {
-  border-color: var(--border-strong);
+  filter: brightness(1.08);
 }
 
-/* Input dark styling */
+/* Input — sunken/inset look */
 .input-dark {
-  background: var(--bg-input);
-  border: 1px solid var(--border-default);
+  background: var(--bg-abyss);
+  border: none;
   color: var(--text-primary);
-  border-radius: 0.5rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 1px;
+  box-shadow:
+    inset 1px 1px 0 var(--border-shadow),
+    inset -1px -1px 0 var(--border-highlight),
+    0 0 0 1px var(--border-mid);
+  transition: box-shadow 0.15s ease;
 }
 .input-dark:focus {
   outline: none;
-  border-color: var(--gold-dim);
-  box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.15);
+  box-shadow:
+    inset 1px 1px 0 var(--border-shadow),
+    inset -1px -1px 0 var(--border-highlight),
+    0 0 0 1px var(--gold-dim);
 }
 .input-dark::placeholder {
   color: var(--text-muted);
@@ -140,7 +166,7 @@ body::before {
   opacity: 0.5;
 }
 
-/* Scrollbar styling */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -148,8 +174,8 @@ body::before {
   background: var(--bg-abyss);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: 3px;
+  background: var(--border-mid);
+  border-radius: 1px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-strong);

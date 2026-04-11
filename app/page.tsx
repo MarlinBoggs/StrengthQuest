@@ -16,7 +16,6 @@ export default async function Home() {
               className="font-display text-6xl sm:text-7xl font-bold tracking-wider uppercase"
               style={{
                 color: 'var(--gold)',
-                textShadow: '0 0 30px rgba(240, 180, 41, 0.15)',
               }}
             >
               <span style={{ color: 'var(--gold-bright)' }}>Strength</span><span style={{ color: 'var(--text-primary)' }}>Quest</span>
@@ -32,7 +31,7 @@ export default async function Home() {
               {user ? (
                 <Link
                   href="/dashboard"
-                  className="btn-gold px-8 py-3 rounded-lg font-bold uppercase tracking-wider text-sm"
+                  className="btn-gold px-8 py-3 rounded-sm font-bold uppercase tracking-wider text-sm"
                 >
                   Go to Dashboard
                 </Link>
@@ -40,16 +39,18 @@ export default async function Home() {
                 <>
                   <Link
                     href="/login"
-                    className="btn-gold px-8 py-3 rounded-lg font-bold uppercase tracking-wider text-sm"
+                    className="btn-gold px-8 py-3 rounded-sm font-bold uppercase tracking-wider text-sm"
                   >
                     Get Started
                   </Link>
                   <Link
                     href="/login"
-                    className="px-8 py-3 rounded-lg font-semibold text-sm transition-colors"
+                    className="px-8 py-3 font-semibold text-sm transition-all"
                     style={{
-                      border: '1px solid var(--border-default)',
+                      background: 'var(--bg-elevated)',
                       color: 'var(--text-secondary)',
+                      boxShadow: 'inset 1px 1px 0 var(--border-highlight), inset -1px -1px 0 var(--border-shadow), 0 0 0 1px var(--border-mid)',
+                      borderRadius: '2px',
                     }}
                   >
                     Sign In
