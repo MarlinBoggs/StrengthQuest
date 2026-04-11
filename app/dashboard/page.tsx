@@ -196,9 +196,16 @@ export default async function DashboardPage() {
                     {Math.round(character.total_strength_1rm)}
                     <span className="text-sm font-sans ml-1" style={{ color: 'var(--text-secondary)' }}>lbs</span>
                   </p>
-                  {realTotalStrength > 0 && (
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      {Math.round(realTotalStrength)} lb lifted
+                  {activeSkills.some((us: any) => prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)) && (
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {activeSkills
+                        .map((us: any) => {
+                          const pr = prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)
+                          if (!pr) return null
+                          return `${us.skills.name} ${pr.max_weight_lifted ?? pr.best_weight}`
+                        })
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
                   )}
                 </div>
