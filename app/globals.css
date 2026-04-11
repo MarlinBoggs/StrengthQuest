@@ -1,26 +1,156 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* Base palette — forge/armory dark */
+  --bg-abyss: #06060b;
+  --bg-base: #0c0c14;
+  --bg-card: #12121e;
+  --bg-elevated: #1a1a2e;
+  --bg-input: #16162a;
+  --border-subtle: #1e1e3a;
+  --border-default: #2a2a4a;
+  --border-strong: #3a3a5e;
+
+  /* Text */
+  --text-primary: #e8e6f0;
+  --text-secondary: #8a87a0;
+  --text-muted: #5c5a6e;
+
+  /* Gold — molten, not flat */
+  --gold: #f0b429;
+  --gold-bright: #fcd34d;
+  --gold-dim: #b8860b;
+  --gold-glow: rgba(240, 180, 41, 0.3);
+
+  /* Achievement colors */
+  --pr-gold: #f0b429;
+  --tier-purple: #a855f7;
+  --levelup-emerald: #34d399;
+
+  /* Noise overlay */
+  --noise-opacity: 0.03;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --color-gold: var(--gold);
+  --color-gold-bright: var(--gold-bright);
+  --font-sans: var(--font-barlow);
+  --font-display: var(--font-cinzel);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base body */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-abyss);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Subtle noise texture overlay on all pages */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: var(--noise-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* Cinzel display font utility */
+.font-display {
+  font-family: var(--font-cinzel), serif;
+  letter-spacing: 0.04em;
+}
+
+/* Gold glow button */
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-dim) 0%, var(--gold) 50%, var(--gold-bright) 100%);
+  color: #0c0c14;
+  font-weight: 700;
+  border: 1px solid var(--gold);
+  box-shadow: 0 0 20px var(--gold-glow), 0 0 60px rgba(240, 180, 41, 0.1);
+  transition: all 0.2s ease;
+}
+.btn-gold:hover {
+  box-shadow: 0 0 30px var(--gold-glow), 0 0 80px rgba(240, 180, 41, 0.15);
+  transform: translateY(-1px);
+}
+.btn-gold:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Card panel */
+.card-dark {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+}
+
+/* XP bar glow effect */
+.xp-bar-track {
+  background: var(--bg-abyss);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  height: 8px;
+  overflow: hidden;
+}
+.xp-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.6s ease;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Skill glow card */
+.skill-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.skill-card:hover {
+  border-color: var(--border-strong);
+}
+
+/* Input dark styling */
+.input-dark {
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 0.5rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input-dark:focus {
+  outline: none;
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.15);
+}
+.input-dark::placeholder {
+  color: var(--text-muted);
+}
+.input-dark:disabled {
+  opacity: 0.5;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-abyss);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
 }
