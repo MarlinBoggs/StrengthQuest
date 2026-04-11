@@ -187,44 +187,39 @@ export default async function DashboardPage() {
 
           <div className="flex items-center justify-between mt-6 pt-4 relative" style={{ borderTop: '1px solid var(--border-mid)' }}>
             <div>
-              {character.total_strength_1rm > 0 ? (
+              {realTotalStrength > 0 ? (
                 <div>
                   <span className="text-xs uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
                     Total Strength
                   </span>
                   <p className="text-2xl font-bold font-display tracking-wide" style={{ color: 'var(--gold)' }}>
-                    {Math.round(character.total_strength_1rm)}
+                    {Math.round(realTotalStrength)}
                     <span className="text-sm font-sans ml-1" style={{ color: 'var(--text-secondary)' }}>lbs</span>
                   </p>
-                  {activeSkills.some((us: any) => prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)) && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {(
-                        // SBD order: Squat · Bench · Deadlift
-                        [...activeSkills].sort((a: any, b: any) => {
-                          const rank = (us: any) => {
-                            const name = (prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)?.exercise_name ?? '').toLowerCase()
-                            if (name.includes('squat')) return 0
-                            if (name.includes('bench')) return 1
-                            if (name.includes('deadlift')) return 2
-                            return 3
-                          }
-                          return rank(a) - rank(b)
-                        }) as any[]
-                      )
-                        .map((us: any) => {
-                          const pr = prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)
-                          if (!pr) return null
-                          const name = pr.exercise_name.toLowerCase()
-                          const short = name.includes('squat') ? 'Squat'
-                            : name.includes('bench') ? 'Bench'
-                            : name.includes('deadlift') ? 'Deadlift'
-                            : pr.exercise_name.split(' ')[0]
-                          return `${short} ${pr.max_weight_lifted ?? pr.best_weight}`
-                        })
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                  )}
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    {(
+                      // SBD order: Squat · Bench · Deadlift
+                      [...activeSkills].sort((a: any, b: any) => {
+                        const sbdRank = (us: any) => {
+                          const name = (prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)?.exercise_name ?? us.skills.slug ?? '').toLowerCase()
+                          if (name.includes('squat') || name.includes('legs')) return 0
+                          if (name.includes('bench') || name.includes('push')) return 1
+                          if (name.includes('deadlift') || name.includes('pull')) return 2
+                          return 3
+                        }
+                        return sbdRank(a) - sbdRank(b)
+                      }) as any[]
+                    ).map((us: any) => {
+                      const pr = prsBySkill[us.skill_id]?.find((p: any) => p.is_primary)
+                      const name = (pr?.exercise_name ?? '').toLowerCase()
+                      const short = name.includes('squat') ? 'Squat'
+                        : name.includes('bench') ? 'Bench'
+                        : name.includes('deadlift') ? 'Deadlift'
+                        : us.skills.name
+                      const weight = pr?.max_weight_lifted ?? pr?.best_weight
+                      return weight ? `${short} ${weight}` : `${short} —`
+                    }).join(' · ')}
+                  </p>
                 </div>
               ) : (
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
