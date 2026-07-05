@@ -195,6 +195,133 @@ body::before {
   opacity: 0.5;
 }
 
+@keyframes sq-xp-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px) scale(1.04);
+  }
+}
+
+/* ============ Landing page ============ */
+
+/* Scroll reveal — sections fade/rise once when they enter the viewport */
+.sq-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.sq-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Ambient +XP float on showcase skill cards (runs once the card is visible) */
+.sq-float-xp {
+  opacity: 0;
+}
+.is-visible .sq-float-xp {
+  animation: sq-xp-loop 5s ease-out infinite;
+}
+@keyframes sq-xp-loop {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  26% {
+    opacity: 0;
+    transform: translateY(-22px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-22px);
+  }
+}
+
+/* Level-up celebration — pulsing gold glow on the chiseled panel */
+.sq-levelup-panel.is-visible {
+  animation: sq-levelup-glow 2.8s ease-in-out infinite;
+}
+@keyframes sq-levelup-glow {
+  0%,
+  100% {
+    box-shadow:
+      inset 1px 1px 0 var(--border-highlight),
+      inset -1px -1px 0 var(--border-shadow),
+      0 0 0 1px var(--gold-dim),
+      0 0 18px var(--gold-glow);
+  }
+  50% {
+    box-shadow:
+      inset 1px 1px 0 var(--border-highlight),
+      inset -1px -1px 0 var(--border-shadow),
+      0 0 0 1px var(--gold),
+      0 0 42px var(--gold-glow);
+  }
+}
+
+/* Level-up particles — gold motes drifting out from the panel center */
+.sq-particle-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--gold-bright);
+  opacity: 0;
+}
+.is-visible .sq-particle-dot {
+  animation: sq-particle 2.4s ease-out infinite;
+  animation-delay: var(--pd, 0s);
+}
+@keyframes sq-particle {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx, 0px), var(--dy, -40px)) scale(0.4);
+  }
+}
+
+/* Visible focus states */
+.btn-gold:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sq-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .is-visible .sq-float-xp,
+  .is-visible .sq-particle-dot {
+    animation: none;
+  }
+  .sq-levelup-panel.is-visible {
+    animation: none;
+  }
+  .xp-bar-fill {
+    transition: none;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
