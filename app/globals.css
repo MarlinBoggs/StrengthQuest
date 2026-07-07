@@ -322,6 +322,177 @@ a:focus-visible {
   }
 }
 
+/* ============ Dashboard — fantasy skill panel ============ */
+
+.sq-dash {
+  --dbg: #171008;
+  --dpanel: #241a10;
+  --dpanel-raised: #322516;
+  --dink: #e4d5a8;
+  --dink-muted: #9a8a68;
+  --dgold: #c9a227;
+  --dbevel-light: #5c4a33;
+  --dbevel-dark: #0d0906;
+
+  background: var(--dbg);
+  color: var(--dink);
+  font-size: 15px;
+}
+
+/* Raised bevel surface: light top/left, dark bottom/right */
+.sq-panel,
+.sq-panel-raised,
+.sq-tile {
+  border-top: 2px solid var(--dbevel-light);
+  border-left: 2px solid var(--dbevel-light);
+  border-bottom: 2px solid var(--dbevel-dark);
+  border-right: 2px solid var(--dbevel-dark);
+  border-radius: 4px;
+}
+.sq-panel { background: var(--dpanel); }
+.sq-panel-raised { background: var(--dpanel-raised); }
+
+/* Sunken bevel (chips, XP wells) */
+.sq-bevel-in {
+  border-top: 2px solid var(--dbevel-dark);
+  border-left: 2px solid var(--dbevel-dark);
+  border-bottom: 2px solid var(--dbevel-light);
+  border-right: 2px solid var(--dbevel-light);
+  border-radius: 3px;
+}
+
+/* Type scale — exactly four sizes: 13 / 15 / 22 / 40+ */
+.sq-label {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--dink-muted);
+}
+.sq-heading {
+  font-family: var(--font-cinzel), serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--dink);
+}
+.sq-hero-num {
+  font-family: var(--font-cinzel), serif;
+  font-size: clamp(40px, 10vw, 52px);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--dgold);
+}
+.sq-num { font-variant-numeric: tabular-nums; }
+
+/* Skill tile (whole tile is a button) */
+.sq-tile {
+  background: var(--dpanel);
+  color: var(--dink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.sq-tile:hover { background: var(--dpanel-raised); }
+.sq-tile:focus-visible {
+  outline: 2px solid var(--dgold);
+  outline-offset: 2px;
+}
+.sq-tile-level {
+  font-family: var(--font-cinzel), serif;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--dgold);
+}
+
+/* Inset XP bar with gold fill */
+.sq-xp-track {
+  height: 6px;
+  background: var(--dbevel-dark);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.8),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+.sq-xp-fill {
+  height: 100%;
+  background: var(--dgold);
+  transition: width 0.7s ease;
+}
+
+/* Gold CTA in dashboard palette */
+.sq-btn-gold {
+  background: linear-gradient(180deg, #d9b446 0%, #a37f14 60%, #c9a227 100%);
+  color: #171008;
+  font-weight: 700;
+  border-top: 2px solid #e8cf7a;
+  border-left: 2px solid #e8cf7a;
+  border-bottom: 2px solid #6b520d;
+  border-right: 2px solid #6b520d;
+  border-radius: 4px;
+  transition: filter 0.1s ease;
+}
+.sq-btn-gold:hover { filter: brightness(1.1); }
+.sq-btn-gold:focus-visible {
+  outline: 2px solid var(--dink);
+  outline-offset: 2px;
+}
+
+/* Skill detail sheet: bottom sheet <768px, side panel >=768px */
+.sq-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  animation: sq-fade-in 0.2s ease;
+}
+.sq-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 85dvh;
+  overflow-y: auto;
+  background: var(--dpanel);
+  border-top: 2px solid var(--dbevel-light);
+  border-radius: 4px 4px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: sq-sheet-up 0.25s ease;
+}
+@media (min-width: 768px) {
+  .sq-sheet {
+    left: auto;
+    top: 0;
+    bottom: 0;
+    width: 400px;
+    max-height: none;
+    border-radius: 0;
+    border-top: none;
+    border-left: 2px solid var(--dbevel-light);
+    animation: sq-sheet-in 0.25s ease;
+  }
+}
+@keyframes sq-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sq-sheet-up {
+  from { transform: translateY(24px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes sq-sheet-in {
+  from { transform: translateX(24px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sq-xp-fill { transition: none; }
+  .sq-sheet,
+  .sq-sheet-overlay { animation: none; }
+  .sq-tile { transition: none; }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

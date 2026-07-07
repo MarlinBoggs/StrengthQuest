@@ -453,20 +453,21 @@ export default function WorkoutForm({
 
   const removeCardioSet = (exerciseIdx: number, setIdx: number) => {
     const updated = [...exercises]
-    if (updated[exerciseIdx].cardioSets.length > 1) {
-      const removedSet = updated[exerciseIdx].cardioSets[setIdx]
-      if (removedSet.completed && removedSet.xpAwarded > 0) {
-        const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
-        if (skillId) {
-          setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - removedSet.xpAwarded) }))
-        }
+    const removedSet = updated[exerciseIdx].cardioSets[setIdx]
+    if (removedSet.completed && removedSet.xpAwarded > 0) {
+      const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
+      if (skillId) {
+        setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - removedSet.xpAwarded) }))
       }
-      updated[exerciseIdx] = {
-        ...updated[exerciseIdx],
-        cardioSets: updated[exerciseIdx].cardioSets.filter((_, i) => i !== setIdx),
-      }
-      setExercises(updated)
     }
+    updated[exerciseIdx] = {
+      ...updated[exerciseIdx],
+      cardioSets:
+        updated[exerciseIdx].cardioSets.length > 1
+          ? updated[exerciseIdx].cardioSets.filter((_, i) => i !== setIdx)
+          : [emptyCardioSet()],
+    }
+    setExercises(updated)
   }
 
   // --- Exercise/Set management ---
@@ -475,9 +476,21 @@ export default function WorkoutForm({
   }
 
   const removeExercise = (idx: number) => {
-    if (exercises.length > 1) {
-      setExercises(exercises.filter((_, i) => i !== idx))
+    const removed = exercises[idx]
+    const skillId = getExerciseSkillId(removed.exerciseId)
+    const forfeitedXp =
+      removed.mode === 'cardio'
+        ? removed.cardioSets.reduce((sum, cs) => sum + (cs.completed ? cs.xpAwarded : 0), 0)
+        : removed.sets.reduce((sum, s) => sum + (s.completed ? s.xpAwarded : 0), 0)
+    if (skillId && forfeitedXp > 0) {
+      setSessionSkillXp((current) => ({
+        ...current,
+        [skillId]: Math.max(0, (current[skillId] ?? 0) - forfeitedXp),
+      }))
     }
+    setExercises((current) =>
+      current.length > 1 ? current.filter((_, i) => i !== idx) : [emptyEntry()]
+    )
   }
 
   const updateExerciseId = (idx: number, id: string) => {
@@ -506,20 +519,21 @@ export default function WorkoutForm({
 
   const removeSet = (exerciseIdx: number, setIdx: number) => {
     const updated = [...exercises]
-    if (updated[exerciseIdx].sets.length > 1) {
-      const removedSet = updated[exerciseIdx].sets[setIdx]
-      if (removedSet.completed && removedSet.xpAwarded > 0) {
-        const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
-        if (skillId) {
-          setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - removedSet.xpAwarded) }))
-        }
+    const removedSet = updated[exerciseIdx].sets[setIdx]
+    if (removedSet.completed && removedSet.xpAwarded > 0) {
+      const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
+      if (skillId) {
+        setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - removedSet.xpAwarded) }))
       }
-      updated[exerciseIdx] = {
-        ...updated[exerciseIdx],
-        sets: updated[exerciseIdx].sets.filter((_, i) => i !== setIdx),
-      }
-      setExercises(updated)
     }
+    updated[exerciseIdx] = {
+      ...updated[exerciseIdx],
+      sets:
+        updated[exerciseIdx].sets.length > 1
+          ? updated[exerciseIdx].sets.filter((_, i) => i !== setIdx)
+          : [{ weight: '', reps: '', rpe: '', completed: false, xpAwarded: 0 }],
+    }
+    setExercises(updated)
   }
 
   const updateSet = (
@@ -860,19 +874,17 @@ export default function WorkoutForm({
                       </span>
                     )}
                   </div>
-                  {exercises.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeExercise(exIdx)}
-                      className="ml-2 text-xs font-medium transition-colors"
-                      style={{ color: 'var(--text-muted)' }}
-                      onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
-                      onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                      disabled={loading}
-                    >
-                      Remove
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeExercise(exIdx)}
+                    className="ml-2 text-xs font-medium transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                    disabled={loading}
+                  >
+                    Remove
+                  </button>
                 </div>
 
                 {isCardio ? (
@@ -961,19 +973,17 @@ export default function WorkoutForm({
                             >
                               {cSet.completed ? 'Edit' : 'Done'}
                             </button>
-                            {exercise.cardioSets.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removeCardioSet(exIdx, setIdx)}
-                                className="text-sm transition-colors"
-                                style={{ color: 'var(--text-muted)' }}
-                                onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
-                                onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                                disabled={loading}
-                              >
-                                &times;
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeCardioSet(exIdx, setIdx)}
+                              className="text-sm transition-colors"
+                              style={{ color: 'var(--text-muted)' }}
+                              onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
+                              onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                              disabled={loading}
+                            >
+                              &times;
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1100,19 +1110,17 @@ export default function WorkoutForm({
                             >
                               {set.completed ? 'Edit' : 'Done'}
                             </button>
-                            {exercise.sets.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removeSet(exIdx, setIdx)}
-                                className="text-sm transition-colors"
-                                style={{ color: 'var(--text-muted)' }}
-                                onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
-                                onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                                disabled={loading}
-                              >
-                                &times;
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeSet(exIdx, setIdx)}
+                              className="text-sm transition-colors"
+                              style={{ color: 'var(--text-muted)' }}
+                              onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
+                              onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                              disabled={loading}
+                            >
+                              &times;
+                            </button>
                             </div>
                           </div>
                         )

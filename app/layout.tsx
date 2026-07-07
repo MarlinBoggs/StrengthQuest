@@ -18,13 +18,17 @@ const siteDescription =
   "The workout tracker that turns your lifts into RPG skills. Earn XP every set, level up Push, Pull, and Legs, and climb the tier ladder from Stone to Mythic.";
 
 export const metadata: Metadata = {
-  // TODO: replace with the real production domain
-  metadataBase: new URL("https://strengthquest.app"),
+  metadataBase: new URL("https://strength-quest.vercel.app"),
   title: {
     default: "StrengthQuest — Level up your strength IRL",
     template: "%s · StrengthQuest",
   },
   description: siteDescription,
+  appleWebApp: {
+    capable: true,
+    title: "StrengthQuest",
+    statusBarStyle: "black-translucent",
+  },
   openGraph: {
     title: "StrengthQuest — Level up your strength IRL",
     description: siteDescription,
