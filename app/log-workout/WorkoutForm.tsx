@@ -1,22 +1,33 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { calculate1RM } from '@/lib/utils/calculate-1rm'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   calculateStrengthSetXp,
   calculateCardioSetXp,
   type CardioIntensity,
 } from '@/lib/utils/calculate-xp'
-import { XP_THRESHOLDS, getLevelForXp } from '@/lib/utils/xp-thresholds'
 import { logWorkout, type WorkoutResult } from './actions'
 import PostWorkoutSummary from './PostWorkoutSummary'
+import ExerciseCard from './ExerciseCard'
+import SessionXpHeader from './SessionXpHeader'
+import {
+  emptyCardioSet,
+  emptyEntry,
+  emptySet,
+  type ActiveXpDrop,
+  type CardioSetEntry,
+  type Exercise,
+  type ExerciseEntry,
+  type SetEntry,
+} from './form-types'
 
 const DRAFT_STORAGE_PREFIX = 'sq:workout-draft:'
 const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
+// Session XP is derived from `exercises`, so drafts only need the entries + date.
+// Older drafts may carry an extra `sessionSkillXp` key — it is simply ignored on read.
 type DraftPayload = {
   exercises: ExerciseEntry[]
-  sessionSkillXp: Record<number, number>
   date: string
   savedAt: number
 }
@@ -30,15 +41,6 @@ function formatRelativeTime(ms: number): string {
   return `${hours} hr ago`
 }
 
-type Exercise = {
-  id: number
-  name: string
-  is_primary: boolean
-  skill_id: number
-  tracks_duration: boolean
-  allows_weight: boolean
-}
-
 type Props = {
   characterId: string
   bodyweightLbs: number
@@ -47,50 +49,6 @@ type Props = {
   skillColors: Record<number, string>
   skillOrder: number[]
   skillXp: Record<number, { currentXp: number; currentLevel: number }>
-}
-
-type SetEntry = {
-  weight: string
-  reps: string
-  rpe: string
-  completed: boolean
-  xpAwarded: number
-}
-
-type CardioSetEntry = {
-  durationMinutes: string
-  intensity: 'low' | 'med' | 'high'
-  completed: boolean
-  xpAwarded: number
-}
-
-type ExerciseEntry = {
-  exerciseId: string
-  mode: 'strength' | 'cardio'
-  sets: SetEntry[]
-  cardioSets: CardioSetEntry[]
-}
-
-const emptyCardioSet = (): CardioSetEntry => ({
-  durationMinutes: '',
-  intensity: 'med',
-  completed: false,
-  xpAwarded: 0,
-})
-
-const emptyEntry = (): ExerciseEntry => ({
-  exerciseId: '',
-  mode: 'strength',
-  sets: [{ weight: '', reps: '', rpe: '', completed: false, xpAwarded: 0 }],
-  cardioSets: [emptyCardioSet()],
-})
-
-type ActiveXpDrop = {
-  id: number
-  exerciseIdx: number
-  setIdx: number
-  amount: number
-  colorHex: string
 }
 
 export default function WorkoutForm({
@@ -115,11 +73,53 @@ export default function WorkoutForm({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<WorkoutResult | null>(null)
-  const [sessionSkillXp, setSessionSkillXp] = useState<Record<number, number>>({})
   const [activeDrops, setActiveDrops] = useState<ActiveXpDrop[]>([])
   const [draftRestore, setDraftRestore] = useState<{ draft: DraftPayload; ageMs: number } | null>(null)
   const [draftHydrated, setDraftHydrated] = useState(false)
   const xpDropIdRef = useRef(0)
+
+  // --- Helpers ---
+  const getExerciseInfo = (exerciseId: string) => {
+    if (!exerciseId) return null
+    return allExercises.find((e) => e.id === parseInt(exerciseId)) ?? null
+  }
+
+  const getExerciseSkillId = (exerciseId: string) => {
+    return getExerciseInfo(exerciseId)?.skill_id ?? null
+  }
+
+  // Per-skill session XP, derived from completed sets — `exercises` is the single
+  // source of truth, so bars can never desync from what's actually marked done.
+  const sessionSkillXp = useMemo(() => {
+    const totals: Record<number, number> = {}
+    for (const ex of exercises) {
+      const skillId = getExerciseSkillId(ex.exerciseId)
+      if (!skillId) continue
+      const list = ex.mode === 'cardio' ? ex.cardioSets : ex.sets
+      for (const s of list) {
+        if (s.completed) totals[skillId] = (totals[skillId] ?? 0) + s.xpAwarded
+      }
+    }
+    return totals
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercises, allExercises])
+
+  const completedSetCount = exercises.reduce(
+    (total, exercise) =>
+      exercise.mode === 'cardio'
+        ? total + exercise.cardioSets.filter((cs) => cs.completed).length
+        : total + exercise.sets.filter((set) => set.completed).length,
+    0
+  )
+
+  const totalWeightLifted = exercises.reduce((sum, ex) =>
+    sum + ex.sets.filter(s => s.completed).reduce((s2, set) => {
+      const w = parseFloat(set.weight) || 0
+      const r = parseInt(set.reps) || 0
+      return s2 + w * r
+    }, 0), 0)
+
+  const hasAnySelectedExercise = exercises.some((ex) => ex.exerciseId !== '')
 
   // --- localStorage draft: read on mount ---
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function WorkoutForm({
       }
       const draft = JSON.parse(raw) as DraftPayload
       const ageMs = Date.now() - (draft.savedAt ?? 0)
-      if (ageMs > DRAFT_MAX_AGE_MS) {
+      if (ageMs > DRAFT_MAX_AGE_MS || !Array.isArray(draft?.exercises)) {
         window.localStorage.removeItem(draftKey)
         setDraftHydrated(true)
         return
@@ -148,14 +148,17 @@ export default function WorkoutForm({
     if (!draftHydrated) return
     const anyContent =
       exercises.some((ex) => ex.exerciseId !== '') ||
-      Object.values(sessionSkillXp).some((v) => v > 0)
+      exercises.some((ex) =>
+        ex.mode === 'cardio'
+          ? ex.cardioSets.some((cs) => cs.completed)
+          : ex.sets.some((s) => s.completed)
+      )
     if (!anyContent) {
       window.localStorage.removeItem(draftKey)
       return
     }
     const payload: DraftPayload = {
       exercises,
-      sessionSkillXp,
       date: workoutDate,
       savedAt: Date.now(),
     }
@@ -164,12 +167,11 @@ export default function WorkoutForm({
     } catch {
       // quota or serialization failure — drop silently
     }
-  }, [exercises, sessionSkillXp, workoutDate, draftKey, draftHydrated])
+  }, [exercises, workoutDate, draftKey, draftHydrated])
 
   const restoreDraft = () => {
     if (!draftRestore) return
     setExercises(draftRestore.draft.exercises)
-    setSessionSkillXp(draftRestore.draft.sessionSkillXp)
     setWorkoutDate(draftRestore.draft.date)
     setDraftRestore(null)
     setDraftHydrated(true)
@@ -199,7 +201,7 @@ export default function WorkoutForm({
     const mkEntry = (name: string, sets: SetEntry[] = [], cardioSets: CardioSetEntry[] = []): ExerciseEntry => ({
       exerciseId: findId(name),
       mode: findSkillType(name) as 'strength' | 'cardio',
-      sets: sets.length ? sets : [{ weight: '', reps: '', rpe: '', completed: false, xpAwarded: 0 }],
+      sets: sets.length ? sets : [emptySet()],
       cardioSets: cardioSets.length ? cardioSets : [emptyCardioSet()],
     })
 
@@ -258,18 +260,17 @@ export default function WorkoutForm({
       ],
     }
 
-    const autoComplete = (preset: ExerciseEntry[]): { entries: ExerciseEntry[], skillTotals: Record<number, number> } => {
-      const skillTotals: Record<number, number> = {}
-      const entries = preset.map((ex) => {
+    // Session XP is derived from `exercises`, so pre-completing sets is enough —
+    // the header bars pick the XP up automatically.
+    const autoComplete = (preset: ExerciseEntry[]): ExerciseEntry[] =>
+      preset.map((ex) => {
         const info = allExercises.find((ae) => String(ae.id) === ex.exerciseId)
-        const sid = info?.skill_id
         if (ex.mode === 'strength') {
           const sets = ex.sets.map((set) => {
             const reps = parseInt(set.reps) || 0
             const weight = parseFloat(set.weight) || 0
             const rpe = set.rpe ? parseFloat(set.rpe) : null
             const xp = calculateStrengthSetXp(weight, reps, rpe, bodyweightLbs, !!info?.is_primary)
-            if (sid) skillTotals[sid] = (skillTotals[sid] ?? 0) + xp
             return { ...set, completed: true, xpAwarded: xp }
           })
           return { ...ex, sets }
@@ -277,26 +278,16 @@ export default function WorkoutForm({
           const cardioSets = ex.cardioSets.map((cs) => {
             const dur = parseInt(cs.durationMinutes) || 0
             const xp = calculateCardioSetXp(dur, cs.intensity as CardioIntensity)
-            if (sid) skillTotals[sid] = (skillTotals[sid] ?? 0) + xp
             return { ...cs, completed: true, xpAwarded: xp }
           })
           return { ...ex, cardioSets }
         }
       })
-      return { entries, skillTotals }
-    }
 
     const handler = (e: KeyboardEvent) => {
       if (!e.ctrlKey || !presets[e.key]) return
       e.preventDefault()
-      if (e.key === '6') {
-        const { entries, skillTotals } = autoComplete(presets['6'])
-        setExercises(entries)
-        setSessionSkillXp(skillTotals)
-      } else {
-        setExercises(presets[e.key])
-        setSessionSkillXp({})
-      }
+      setExercises(e.key === '6' ? autoComplete(presets['6']) : presets[e.key])
       setActiveDrops([])
       setError(null)
     }
@@ -304,24 +295,6 @@ export default function WorkoutForm({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [allExercises, bodyweightLbs])
-
-  // --- Helpers ---
-  const getExerciseInfo = (exerciseId: string) => {
-    if (!exerciseId) return null
-    return allExercises.find((e) => e.id === parseInt(exerciseId)) ?? null
-  }
-
-  const getExerciseSkillId = (exerciseId: string) => {
-    return getExerciseInfo(exerciseId)?.skill_id ?? null
-  }
-
-  const completedSetCount = exercises.reduce(
-    (total, exercise) =>
-      exercise.mode === 'cardio'
-        ? total + exercise.cardioSets.filter((cs) => cs.completed).length
-        : total + exercise.sets.filter((set) => set.completed).length,
-    0
-  )
 
   const createXpDrop = (exerciseIdx: number, setIdx: number, amount: number, colorHex: string) => {
     xpDropIdRef.current += 1
@@ -354,7 +327,7 @@ export default function WorkoutForm({
     const rpe = set.rpe ? parseFloat(set.rpe) : null
     const awardedXp = calculateStrengthSetXp(weight, reps, rpe, bodyweightLbs, !!info?.is_primary)
     const skillId = getExerciseSkillId(exercise.exerciseId)
-    const colorHex = skillId ? skillColors[skillId] : 'var(--gold)'
+    const colorHex = skillId ? skillColors[skillId] : 'var(--dgold)'
 
     setExercises((current) =>
       current.map((entry, entryIdx) =>
@@ -370,16 +343,10 @@ export default function WorkoutForm({
           : entry
       )
     )
-    if (skillId) {
-      setSessionSkillXp((current) => ({ ...current, [skillId]: (current[skillId] ?? 0) + awardedXp }))
-    }
     createXpDrop(exerciseIdx, setIdx, awardedXp, colorHex)
   }
 
   const markSetEditable = (exerciseIdx: number, setIdx: number) => {
-    const exercise = exercises[exerciseIdx]
-    const awardedXp = exercise.sets[setIdx].xpAwarded
-    const skillId = getExerciseSkillId(exercise.exerciseId)
     setExercises((current) =>
       current.map((entry, entryIdx) =>
         entryIdx === exerciseIdx
@@ -394,9 +361,6 @@ export default function WorkoutForm({
           : entry
       )
     )
-    if (skillId) {
-      setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - awardedXp) }))
-    }
   }
 
   const markCardioSetCompleted = (exerciseIdx: number, setIdx: number) => {
@@ -411,7 +375,7 @@ export default function WorkoutForm({
     setError(null)
     const awardedXp = calculateCardioSetXp(duration, set.intensity as CardioIntensity)
     const skillId = getExerciseSkillId(exercise.exerciseId)
-    const colorHex = skillId ? skillColors[skillId] : 'var(--gold)'
+    const colorHex = skillId ? skillColors[skillId] : 'var(--dgold)'
     setExercises((current) =>
       current.map((entry, idx) =>
         idx === exerciseIdx
@@ -419,16 +383,10 @@ export default function WorkoutForm({
           : entry
       )
     )
-    if (skillId) {
-      setSessionSkillXp((current) => ({ ...current, [skillId]: (current[skillId] ?? 0) + awardedXp }))
-    }
     createXpDrop(exerciseIdx, setIdx, awardedXp, colorHex)
   }
 
   const markCardioSetEditable = (exerciseIdx: number, setIdx: number) => {
-    const exercise = exercises[exerciseIdx]
-    const awardedXp = exercise.cardioSets[setIdx].xpAwarded
-    const skillId = getExerciseSkillId(exercise.exerciseId)
     setExercises((current) =>
       current.map((entry, idx) =>
         idx === exerciseIdx
@@ -436,9 +394,6 @@ export default function WorkoutForm({
           : entry
       )
     )
-    if (skillId && awardedXp > 0) {
-      setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - awardedXp) }))
-    }
   }
 
   const addCardioSet = (exerciseIdx: number) => {
@@ -453,13 +408,6 @@ export default function WorkoutForm({
 
   const removeCardioSet = (exerciseIdx: number, setIdx: number) => {
     const updated = [...exercises]
-    const removedSet = updated[exerciseIdx].cardioSets[setIdx]
-    if (removedSet.completed && removedSet.xpAwarded > 0) {
-      const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
-      if (skillId) {
-        setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - removedSet.xpAwarded) }))
-      }
-    }
     updated[exerciseIdx] = {
       ...updated[exerciseIdx],
       cardioSets:
@@ -476,18 +424,6 @@ export default function WorkoutForm({
   }
 
   const removeExercise = (idx: number) => {
-    const removed = exercises[idx]
-    const skillId = getExerciseSkillId(removed.exerciseId)
-    const forfeitedXp =
-      removed.mode === 'cardio'
-        ? removed.cardioSets.reduce((sum, cs) => sum + (cs.completed ? cs.xpAwarded : 0), 0)
-        : removed.sets.reduce((sum, s) => sum + (s.completed ? s.xpAwarded : 0), 0)
-    if (skillId && forfeitedXp > 0) {
-      setSessionSkillXp((current) => ({
-        ...current,
-        [skillId]: Math.max(0, (current[skillId] ?? 0) - forfeitedXp),
-      }))
-    }
     setExercises((current) =>
       current.length > 1 ? current.filter((_, i) => i !== idx) : [emptyEntry()]
     )
@@ -519,19 +455,12 @@ export default function WorkoutForm({
 
   const removeSet = (exerciseIdx: number, setIdx: number) => {
     const updated = [...exercises]
-    const removedSet = updated[exerciseIdx].sets[setIdx]
-    if (removedSet.completed && removedSet.xpAwarded > 0) {
-      const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
-      if (skillId) {
-        setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - removedSet.xpAwarded) }))
-      }
-    }
     updated[exerciseIdx] = {
       ...updated[exerciseIdx],
       sets:
         updated[exerciseIdx].sets.length > 1
           ? updated[exerciseIdx].sets.filter((_, i) => i !== setIdx)
-          : [{ weight: '', reps: '', rpe: '', completed: false, xpAwarded: 0 }],
+          : [emptySet()],
     }
     setExercises(updated)
   }
@@ -539,17 +468,10 @@ export default function WorkoutForm({
   const updateSet = (
     exerciseIdx: number,
     setIdx: number,
-    field: keyof SetEntry,
+    field: 'weight' | 'reps' | 'rpe',
     value: string
   ) => {
     const updated = [...exercises]
-    const targetSet = updated[exerciseIdx].sets[setIdx]
-    if (targetSet.completed && targetSet.xpAwarded > 0) {
-      const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
-      if (skillId) {
-        setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - targetSet.xpAwarded) }))
-      }
-    }
     updated[exerciseIdx] = {
       ...updated[exerciseIdx],
       sets: updated[exerciseIdx].sets.map((s, i) =>
@@ -568,13 +490,6 @@ export default function WorkoutForm({
     value: string
   ) => {
     const updated = [...exercises]
-    const targetSet = updated[exerciseIdx].cardioSets[setIdx]
-    if (targetSet.completed && targetSet.xpAwarded > 0) {
-      const skillId = getExerciseSkillId(updated[exerciseIdx].exerciseId)
-      if (skillId) {
-        setSessionSkillXp((current) => ({ ...current, [skillId]: Math.max(0, (current[skillId] ?? 0) - targetSet.xpAwarded) }))
-      }
-    }
     updated[exerciseIdx] = {
       ...updated[exerciseIdx],
       cardioSets: updated[exerciseIdx].cardioSets.map((cs, i) =>
@@ -582,6 +497,16 @@ export default function WorkoutForm({
       ),
     }
     setExercises(updated)
+  }
+
+  const toggleSet = (exerciseIdx: number, setIdx: number) => {
+    if (exercises[exerciseIdx].sets[setIdx].completed) markSetEditable(exerciseIdx, setIdx)
+    else markSetCompleted(exerciseIdx, setIdx)
+  }
+
+  const toggleCardioSet = (exerciseIdx: number, setIdx: number) => {
+    if (exercises[exerciseIdx].cardioSets[setIdx].completed) markCardioSetEditable(exerciseIdx, setIdx)
+    else markCardioSetCompleted(exerciseIdx, setIdx)
   }
 
   // --- Submit ---
@@ -655,7 +580,6 @@ export default function WorkoutForm({
   const resetForm = () => {
     setResult(null)
     setExercises([emptyEntry()])
-    setSessionSkillXp({})
     setActiveDrops([])
     const today = new Date()
     const year = today.getFullYear()
@@ -675,20 +599,14 @@ export default function WorkoutForm({
         />
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {draftRestore && (
-          <div
-            className="rounded-lg p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-            style={{
-              background: 'rgba(240, 180, 41, 0.08)',
-              border: '1px solid var(--gold-dim)',
-            }}
-          >
+          <div className="sq-panel-raised p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--gold-bright)' }}>
+              <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--dgold)' }}>
                 Resume in-progress workout?
               </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+              <p className="mt-1" style={{ fontSize: '13px', color: 'var(--dink-muted)' }}>
                 Saved {formatRelativeTime(draftRestore.ageMs)}.
               </p>
             </div>
@@ -696,20 +614,16 @@ export default function WorkoutForm({
               <button
                 type="button"
                 onClick={restoreDraft}
-                className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
-                style={{ background: 'var(--gold)', color: '#201608' }}
+                className="sq-btn-gold px-4 font-bold uppercase tracking-wider"
+                style={{ fontSize: '13px', minHeight: '44px' }}
               >
                 Resume
               </button>
               <button
                 type="button"
                 onClick={discardDraft}
-                className="px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider"
-                style={{
-                  background: 'transparent',
-                  color: 'var(--text-secondary)',
-                  border: '1px solid var(--border-default)',
-                }}
+                className="sq-bevel-in px-4 font-semibold uppercase tracking-wider"
+                style={{ fontSize: '13px', minHeight: '44px', color: 'var(--dink-muted)', background: 'var(--dbg)' }}
               >
                 Discard
               </button>
@@ -717,101 +631,31 @@ export default function WorkoutForm({
           </div>
         )}
 
-        {(() => {
-          const totalSessionXp = Object.values(sessionSkillXp).reduce((sum, v) => sum + v, 0)
-          const activeSkills = Object.entries(sessionSkillXp).filter(([, xp]) => xp > 0)
-          const totalWeightLifted = exercises.reduce((sum, ex) =>
-            sum + ex.sets.filter(s => s.completed).reduce((s2, set) => {
-              const w = parseFloat(set.weight) || 0
-              const r = parseInt(set.reps) || 0
-              return s2 + w * r
-            }, 0), 0)
-
-          if (activeSkills.length === 0 && completedSetCount === 0) return null
-
-          return (
-            <div
-              style={{
-                position: 'sticky',
-                top: '0',
-                zIndex: 10,
-                marginLeft: '-24px',
-                marginRight: '-24px',
-                padding: '12px 24px',
-                background: 'var(--bg-card)',
-                borderBottom: '1px solid var(--border-default)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-              }}
-            >
-              {activeSkills.length > 0 && (
-                <div className="space-y-3">
-                  {activeSkills.map(([sidStr, gained]) => {
-                    const sid = parseInt(sidStr)
-                    const real = skillXp[sid] ?? { currentXp: 0, currentLevel: 1 }
-                    const totalXp = real.currentXp + gained
-                    const effectiveLevel = getLevelForXp(totalXp)
-                    const currentLevelXp = XP_THRESHOLDS[effectiveLevel - 1]
-                    const nextLevelXp = effectiveLevel >= 10
-                      ? currentLevelXp
-                      : XP_THRESHOLDS[effectiveLevel]
-                    const range = nextLevelXp - currentLevelXp
-                    const progress = effectiveLevel >= 10
-                      ? 100
-                      : Math.min(100, Math.round(((totalXp - currentLevelXp) / range) * 100))
-                    const colorHex = skillColors[sid] ?? 'var(--gold)'
-
-                    return (
-                      <div key={sid}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colorHex }}>
-                            {skillNames[sid]} <span style={{ color: 'var(--text-muted)' }}>Lv.{effectiveLevel}</span>
-                          </span>
-                          <span className="text-xs font-bold" style={{ color: colorHex }}>
-                            +{gained} XP
-                          </span>
-                        </div>
-                        <div className="xp-bar-track">
-                          <div
-                            className="xp-bar-fill"
-                            style={{
-                              width: `${progress}%`,
-                              background: `linear-gradient(90deg, ${colorHex}cc, ${colorHex})`,
-                              boxShadow: `0 0 6px ${colorHex}40`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-              <div className={`flex items-center justify-between${activeSkills.length > 0 ? ' mt-3 pt-3' : ''}`} style={activeSkills.length > 0 ? { borderTop: '1px solid var(--border-subtle)' } : {}}>
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>
-                  {completedSetCount} sets · {totalWeightLifted.toLocaleString()} lbs
-                </span>
-                <span className="text-sm font-display font-bold" style={{ color: 'var(--gold)' }}>
-                  +{totalSessionXp} XP
-                </span>
-              </div>
-            </div>
-          )
-        })()}
+        <SessionXpHeader
+          visible={hasAnySelectedExercise}
+          sessionSkillXp={sessionSkillXp}
+          skillXp={skillXp}
+          skillNames={skillNames}
+          skillColors={skillColors}
+          completedSetCount={completedSetCount}
+          totalWeightLifted={totalWeightLifted}
+        />
 
         {error && (
           <div
-            className="rounded-lg p-4"
+            className="rounded p-4"
             style={{
               background: 'rgba(220, 38, 38, 0.1)',
               border: '1px solid rgba(220, 38, 38, 0.3)',
             }}
           >
-            <p className="text-sm font-medium" style={{ color: '#fca5a5' }}>{error}</p>
+            <p style={{ fontSize: '15px', fontWeight: 500, color: '#fca5a5' }}>{error}</p>
           </div>
         )}
 
         {/* Date */}
         <div>
-          <label htmlFor="date" className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+          <label htmlFor="date" className="sq-label block mb-2">
             Date
           </label>
           <input
@@ -819,7 +663,7 @@ export default function WorkoutForm({
             id="date"
             value={workoutDate}
             onChange={(e) => setWorkoutDate(e.target.value)}
-            className="input-dark w-full px-3 py-2 rounded-lg text-sm"
+            className="sq-input w-full px-3 py-2"
             disabled={loading}
           />
         </div>
@@ -828,340 +672,42 @@ export default function WorkoutForm({
         <div className="space-y-4">
           {exercises.map((exercise, exIdx) => {
             const skillId = getExerciseSkillId(exercise.exerciseId)
-            const skillColor = skillId ? skillColors[skillId] : undefined
-            const isCardio = exercise.mode === 'cardio'
-
             return (
-              <div
+              <ExerciseCard
                 key={exIdx}
-                className="rounded-lg p-4 transition-all duration-200"
-                style={{
-                  background: 'var(--bg-elevated)',
-                  borderTop: '1px solid var(--border-subtle)',
-                  borderRight: '1px solid var(--border-subtle)',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  borderLeft: skillColor ? `3px solid ${skillColor}` : '1px solid var(--border-subtle)',
-                  ...(skillColor ? { boxShadow: `0 0 15px ${skillColor}10, 0 0 4px ${skillColor}08` } : {}),
-                }}
-              >
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="flex flex-1 min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                    <select
-                      value={exercise.exerciseId}
-                      onChange={(e) => updateExerciseId(exIdx, e.target.value)}
-                      className="input-dark w-full min-w-0 flex-1 px-3 py-2 rounded-lg text-sm"
-                      disabled={loading}
-                    >
-                      <option value="">Select exercise</option>
-                      {skillOrder.map((sid) => (
-                        <optgroup key={sid} label={skillNames[sid]}>
-                          {allExercises
-                            .filter((ex) => ex.skill_id === sid)
-                            .map((ex) => (
-                              <option key={ex.id} value={ex.id}>
-                                {ex.name}{ex.is_primary ? ' ⚔' : ''}
-                              </option>
-                            ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                    {skillId && (
-                      <span
-                        className="inline-flex max-w-full self-start text-xs font-semibold px-2 py-0.5 rounded break-words sm:self-auto"
-                        style={{ backgroundColor: `${skillColors[skillId]}20`, color: skillColors[skillId] }}
-                      >
-                        {skillNames[skillId]}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeExercise(exIdx)}
-                    className="ml-2 text-xs font-medium transition-colors"
-                    style={{ color: 'var(--text-muted)' }}
-                    onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
-                    onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                    disabled={loading}
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                {isCardio ? (
-                  /* Cardio sets */
-                  <>
-                    <div className="space-y-2">
-                      {exercise.cardioSets.map((cSet, setIdx) => (
-                        <div
-                          key={setIdx}
-                          className="relative rounded-lg p-3 sm:p-2"
-                          style={{
-                            background: cSet.completed ? 'rgba(240, 180, 41, 0.08)' : 'transparent',
-                            boxShadow: cSet.completed ? 'inset 0 0 0 1px rgba(240, 180, 41, 0.25)' : 'none',
-                          }}
-                        >
-                          {activeDrops
-                            .filter((drop) => drop.exerciseIdx === exIdx && drop.setIdx === setIdx)
-                            .map((drop) => (
-                              <div
-                                key={drop.id}
-                                className="pointer-events-none absolute right-3 top-0 text-sm font-bold"
-                                style={{
-                                  color: drop.colorHex,
-                                  textShadow: '0 0 8px rgba(0, 0, 0, 0.35)',
-                                  animation: 'sq-xp-rise 0.9s ease-out forwards',
-                                }}
-                              >
-                                +{drop.amount} XP
-                              </div>
-                            ))}
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <span
-                              className="text-xs w-6 text-right font-medium"
-                              style={{ color: 'var(--text-muted)' }}
-                            >
-                              {setIdx + 1}
-                            </span>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <input
-                                type="number"
-                                placeholder="min"
-                                value={cSet.durationMinutes}
-                                onChange={(e) => updateCardioSet(exIdx, setIdx, 'durationMinutes', e.target.value)}
-                                className="input-dark w-24 sm:w-20 px-2 py-1.5 rounded text-sm"
-                                disabled={loading || cSet.completed}
-                                min="1"
-                                max="300"
-                              />
-                              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>min</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto sm:items-center sm:gap-1">
-                              {(['low', 'med', 'high'] as const).map((lvl) => {
-                                const active = cSet.intensity === lvl
-                                return (
-                                  <button
-                                    key={lvl}
-                                    type="button"
-                                    onClick={() => updateCardioSet(exIdx, setIdx, 'intensity', lvl)}
-                                    className="min-w-0 text-center text-xs font-semibold uppercase tracking-wider px-3 py-1.5 rounded transition-colors"
-                                    style={{
-                                      border: `1px solid ${active ? 'var(--gold)' : 'var(--border-default)'}`,
-                                      background: active ? 'rgba(240, 180, 41, 0.12)' : 'transparent',
-                                      color: active ? 'var(--gold-bright)' : 'var(--text-secondary)',
-                                    }}
-                                    disabled={loading || cSet.completed}
-                                  >
-                                    {lvl}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                cSet.completed
-                                  ? markCardioSetEditable(exIdx, setIdx)
-                                  : markCardioSetCompleted(exIdx, setIdx)
-                              }
-                              className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors sm:ml-auto"
-                              style={{
-                                background: cSet.completed ? 'rgba(240, 180, 41, 0.12)' : 'var(--gold)',
-                                color: cSet.completed ? 'var(--gold-bright)' : '#201608',
-                                boxShadow: cSet.completed ? 'inset 0 0 0 1px rgba(240, 180, 41, 0.28)' : 'none',
-                              }}
-                              disabled={loading}
-                            >
-                              {cSet.completed ? 'Edit' : 'Done'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeCardioSet(exIdx, setIdx)}
-                              className="text-sm transition-colors"
-                              style={{ color: 'var(--text-muted)' }}
-                              onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
-                              onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                              disabled={loading}
-                            >
-                              &times;
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={() => addCardioSet(exIdx)}
-                        className="text-xs font-semibold uppercase tracking-wider transition-colors"
-                        style={{ color: 'var(--text-secondary)' }}
-                        onMouseOver={(e) => (e.currentTarget.style.color = 'var(--gold)')}
-                        onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
-                        disabled={loading}
-                      >
-                        + Add Set
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  /* Strength sets */
-                  <>
-                    <div className="space-y-2">
-                      {exercise.sets.map((set, setIdx) => {
-                        const w = parseFloat(set.weight)
-                        const r = parseInt(set.reps)
-                        const estimated1rm =
-                          !isNaN(w) && w > 0 && !isNaN(r) && r > 0
-                            ? calculate1RM(w, r)
-                            : null
-
-                        return (
-                          <div
-                            key={setIdx}
-                            className="relative rounded-lg p-3 sm:p-2"
-                            style={{
-                              background: set.completed ? 'rgba(240, 180, 41, 0.08)' : 'transparent',
-                              boxShadow: set.completed ? 'inset 0 0 0 1px rgba(240, 180, 41, 0.25)' : 'none',
-                            }}
-                          >
-                            {activeDrops
-                              .filter((drop) => drop.exerciseIdx === exIdx && drop.setIdx === setIdx)
-                              .map((drop) => (
-                                <div
-                                  key={drop.id}
-                                  className="pointer-events-none absolute right-3 top-0 text-sm font-bold"
-                                  style={{
-                                    color: drop.colorHex,
-                                    textShadow: '0 0 8px rgba(0, 0, 0, 0.35)',
-                                    animation: 'sq-xp-rise 0.9s ease-out forwards',
-                                  }}
-                                >
-                                  +{drop.amount} XP
-                                </div>
-                              ))}
-
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <span
-                              className="text-xs w-6 text-right font-medium"
-                              style={{ color: 'var(--text-muted)' }}
-                            >
-                              {setIdx + 1}
-                            </span>
-                            <input
-                              type="number"
-                              placeholder="lbs"
-                              value={set.weight}
-                              onChange={(e) =>
-                                updateSet(exIdx, setIdx, 'weight', e.target.value)
-                              }
-                              className="input-dark w-24 sm:w-20 px-2 py-1.5 rounded text-sm"
-                              disabled={loading || set.completed}
-                              step="0.5"
-                              min="0"
-                            />
-                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>&times;</span>
-                            <input
-                              type="number"
-                              placeholder="reps"
-                              value={set.reps}
-                              onChange={(e) =>
-                                updateSet(exIdx, setIdx, 'reps', e.target.value)
-                              }
-                              className="input-dark w-20 sm:w-16 px-2 py-1.5 rounded text-sm"
-                              disabled={loading || set.completed}
-                              min="1"
-                            />
-                            <select
-                              value={set.rpe}
-                              onChange={(e) =>
-                                updateSet(exIdx, setIdx, 'rpe', e.target.value)
-                              }
-                              className="input-dark w-20 px-2 py-1.5 rounded text-sm"
-                              disabled={loading || set.completed}
-                            >
-                              <option value="">RPE</option>
-                              {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((v) => (
-                                <option key={v} value={v}>
-                                  {v}
-                                </option>
-                              ))}
-                            </select>
-                            {estimated1rm !== null && (
-                              <span
-                                className="text-xs w-16 text-right font-medium"
-                                style={{ color: 'var(--text-secondary)' }}
-                              >
-                                ~{estimated1rm.toFixed(0)}
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                set.completed
-                                  ? markSetEditable(exIdx, setIdx)
-                                  : markSetCompleted(exIdx, setIdx)
-                              }
-                              className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors sm:ml-auto"
-                              style={{
-                                background: set.completed ? 'rgba(240, 180, 41, 0.12)' : 'var(--gold)',
-                                color: set.completed ? 'var(--gold-bright)' : '#201608',
-                                boxShadow: set.completed ? 'inset 0 0 0 1px rgba(240, 180, 41, 0.28)' : 'none',
-                              }}
-                              disabled={loading}
-                            >
-                              {set.completed ? 'Edit' : 'Done'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeSet(exIdx, setIdx)}
-                              className="text-sm transition-colors"
-                              style={{ color: 'var(--text-muted)' }}
-                              onMouseOver={(e) => (e.currentTarget.style.color = '#ef4444')}
-                              onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                              disabled={loading}
-                            >
-                              &times;
-                            </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={() => addSet(exIdx)}
-                        className="text-xs font-semibold uppercase tracking-wider transition-colors"
-                        style={{ color: 'var(--text-secondary)' }}
-                        onMouseOver={(e) => (e.currentTarget.style.color = 'var(--gold)')}
-                        onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
-                        disabled={loading}
-                      >
-                        + Add Set
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+                exercise={exercise}
+                loading={loading}
+                skillId={skillId}
+                skillName={skillId ? skillNames[skillId] ?? null : null}
+                skillColor={skillId ? skillColors[skillId] ?? null : null}
+                drops={activeDrops.filter((d) => d.exerciseIdx === exIdx)}
+                allExercises={allExercises}
+                skillNames={skillNames}
+                skillOrder={skillOrder}
+                onSelectExercise={(id) => updateExerciseId(exIdx, id)}
+                onRemoveExercise={() => removeExercise(exIdx)}
+                onUpdateSet={(setIdx, field, value) => updateSet(exIdx, setIdx, field, value)}
+                onToggleSet={(setIdx) => toggleSet(exIdx, setIdx)}
+                onRemoveSet={(setIdx) => removeSet(exIdx, setIdx)}
+                onAddSet={() => addSet(exIdx)}
+                onUpdateCardioSet={(setIdx, field, value) => updateCardioSet(exIdx, setIdx, field, value)}
+                onToggleCardioSet={(setIdx) => toggleCardioSet(exIdx, setIdx)}
+                onRemoveCardioSet={(setIdx) => removeCardioSet(exIdx, setIdx)}
+                onAddCardioSet={() => addCardioSet(exIdx)}
+              />
             )
           })}
 
           <button
             type="button"
             onClick={addExercise}
-            className="w-full py-3 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all duration-200"
+            className="w-full rounded font-semibold uppercase tracking-wider transition-colors"
             style={{
-              border: '2px dashed var(--border-default)',
-              color: 'var(--text-secondary)',
+              fontSize: '13px',
+              minHeight: '48px',
+              border: '2px dashed var(--dbevel-light)',
+              color: 'var(--dink-muted)',
               background: 'transparent',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = 'var(--gold-dim)'
-              e.currentTarget.style.color = 'var(--gold)'
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-default)'
-              e.currentTarget.style.color = 'var(--text-secondary)'
             }}
             disabled={loading}
           >
@@ -1172,8 +718,9 @@ export default function WorkoutForm({
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading || !exercises.some((ex) => ex.exerciseId !== '')}
-          className="btn-gold w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+          disabled={loading || !hasAnySelectedExercise}
+          className="sq-btn-gold w-full font-bold uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ fontSize: '15px', minHeight: '48px' }}
         >
           {loading ? 'Logging Workout...' : 'Complete Workout'}
         </button>

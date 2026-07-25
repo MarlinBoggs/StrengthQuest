@@ -421,3 +421,21 @@ April 4, 2026. Mark your calendar. Tell someone. Ship it.
 **Then:** Set up the project and deploy "Hello World" by end of Week 1.
 
 Let's go. 🚀
+
+---
+
+## Post-Launch Design Log
+
+### July 6, 2026 — Fantasy Skill Panel redesign (dashboard + log workout)
+
+Frontend/presentation only — no database, migration, RPC, or server-action changes. Tier **names** unchanged everywhere (Bronze, Iron, Steel, Mithril, Adamantite, Rune, Dragon, Obsidian, Barrows, Bandos, Torva, Greek God) — only their **display colors** moved to muted metallics (`app/dashboard/theme.ts`).
+
+**New `sq-*` theme** (scoped to `.sq-dash` in `globals.css`): parchment-gold palette (#171008 bg / #C9A227 gold / #E4D5A8 ink), 2px bevel borders, radius ≤4px, no soft shadows, 4-size type scale (13/15/22/40+, Cinzel display). Used by dashboard and log-workout; landing/login keep the legacy theme for now.
+
+**Dashboard**: text-heavy skill cards → 2-col (3-col ≥768px) grid of uniform skill tiles (pixel-style icon, small-caps name, big gold level, inset XP bar, one milestone line). All detail (hero lift, Max/Est. 1RM/×BW, 6-notch tier ladder, accessories) moved into a tap-to-open bottom sheet (side panel on desktop). Banner: name, class·Lv chip, big gold Total Strength, SQ/BP/DL chips. Sticky mobile "⚔ Log Workout" bar. Placeholder pixel SVG icons in `SkillIcon.tsx` await custom art.
+
+**Log Workout (mobile-first rework)**:
+- *Bug fixed*: per-skill session XP bars could fail to appear after "Done". Session XP was a separately tracked state map (desync-prone) and the sticky header mounted only after the first completion (iOS Safari can skip painting freshly inserted `position: sticky` elements). Now session XP is **derived** from the `exercises` state via `useMemo`, and the header is always mounted once an exercise is selected.
+- Exercise picker: giant native `<select>` → bottom sheet with search + skill-grouped list (`ExercisePickerSheet.tsx`).
+- Set rows: vertical stack → one line (`# · lbs × reps · RPE · ✓`); est-1RM hidden <640px; 4-6 sets now visible per iPhone 13 screen; all tap targets ≥44px.
+- `WorkoutForm.tsx` decomposed (1184 → ~640 lines + 6 presentational components). Draft schema simplified to `{exercises, date, savedAt}` (old drafts still load). Submit payload unchanged.

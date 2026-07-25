@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { XP_THRESHOLDS } from '@/lib/utils/xp-thresholds'
 import ThemeToggle from '@/app/components/ThemeToggle'
 import SkillsPanel from './SkillsPanel'
+import EquipmentPanel from './EquipmentPanel'
+import { buildEquipment } from './equipment'
 import type { SkillPanelModel } from './theme'
 
 interface TierEntry {
@@ -240,6 +242,19 @@ export default async function DashboardPage() {
     }
   })
 
+  // Equipment: derived from tiers ever reached (no DB state)
+  const totalLevel = activeSkills.reduce(
+    (sum: number, us: any) => sum + (us.current_level ?? 0),
+    0
+  )
+  const equipmentSlots = buildEquipment({
+    skills: skillModels,
+    totalLevel,
+    totalStrengthLbs: realTotalStrength,
+    bodyweightLbs: character.bodyweight_lbs ?? null,
+    className,
+  })
+
   return (
     <div className="sq-dash min-h-screen">
       {/* Compact app bar */}
@@ -330,6 +345,9 @@ export default async function DashboardPage() {
 
         {/* Skill tiles + detail sheet */}
         <SkillsPanel skills={skillModels} />
+
+        {/* Equipment paper doll (derived from tiers ever reached) */}
+        <EquipmentPanel slots={equipmentSlots} />
 
         {/* Phase 2 Coming Soon */}
         {inactiveSkills.length > 0 && (

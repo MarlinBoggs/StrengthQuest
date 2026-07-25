@@ -440,6 +440,28 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* Sunken input in dashboard palette */
+.sq-input {
+  background: var(--dbg);
+  color: var(--dink);
+  border-top: 2px solid var(--dbevel-dark);
+  border-left: 2px solid var(--dbevel-dark);
+  border-bottom: 2px solid var(--dbevel-light);
+  border-right: 2px solid var(--dbevel-light);
+  border-radius: 3px;
+  font-size: 15px;
+}
+.sq-input:focus {
+  outline: 2px solid var(--dgold);
+  outline-offset: 1px;
+}
+.sq-input::placeholder {
+  color: var(--dink-muted);
+}
+.sq-input:disabled {
+  opacity: 0.5;
+}
+
 /* Skill detail sheet: bottom sheet <768px, side panel >=768px */
 .sq-sheet-overlay {
   position: fixed;

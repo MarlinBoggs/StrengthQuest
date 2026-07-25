@@ -59,18 +59,19 @@ export default async function LogWorkoutPage() {
   const skillOrder = activeSkillIds
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-abyss)' }}>
-      {/* Navbar */}
-      <nav style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
+    <div className="sq-dash min-h-screen">
+      {/* Compact app bar */}
+      <nav style={{ background: 'var(--dpanel)', borderBottom: '2px solid var(--dbevel-dark)' }}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-14 items-center">
-            <h1 className="font-display text-lg tracking-widest uppercase" style={{ color: 'var(--gold)' }}>
-              <span style={{ color: 'var(--gold-bright)' }}>Strength</span><span style={{ color: 'var(--text-primary)' }}>Quest</span>
+          <div className="flex justify-between h-12 items-center">
+            <h1 className="font-display tracking-widest uppercase" style={{ fontSize: '15px' }}>
+              <span style={{ color: 'var(--dgold)' }}>Strength</span>
+              <span style={{ color: 'var(--dink)' }}>Quest</span>
             </h1>
             <a
               href="/dashboard"
-              className="text-xs font-medium transition-colors"
-              style={{ color: 'var(--text-secondary)' }}
+              className="flex items-center font-medium transition-colors"
+              style={{ fontSize: '13px', minHeight: '44px', color: 'var(--dink-muted)' }}
             >
               Dashboard
             </a>
@@ -78,22 +79,18 @@ export default async function LogWorkoutPage() {
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="card-dark p-6">
-          <h2 className="font-display text-2xl font-bold tracking-wider uppercase mb-6" style={{ color: 'var(--text-primary)' }}>
-            Log Workout
-          </h2>
+      <main className="max-w-2xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <h2 className="sq-heading uppercase mb-4">Log Workout</h2>
 
-          <WorkoutForm
-            characterId={character.id}
-            bodyweightLbs={Number(character.bodyweight_lbs)}
-            allExercises={allExercises}
-            skillNames={skillNames}
-            skillColors={skillColors}
-            skillOrder={skillOrder}
-            skillXp={skillXp}
-          />
-        </div>
+        <WorkoutForm
+          characterId={character.id}
+          bodyweightLbs={Number(character.bodyweight_lbs)}
+          allExercises={allExercises}
+          skillNames={skillNames}
+          skillColors={skillColors}
+          skillOrder={skillOrder}
+          skillXp={skillXp}
+        />
       </main>
     </div>
   )

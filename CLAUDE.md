@@ -18,14 +18,32 @@ app/
   layout.tsx                  # Root layout (fonts, metadata)
   globals.css                 # Dark RPG theme (CSS variables, utility classes)
   login/page.tsx              # Auth (sign in / sign up)
-  dashboard/page.tsx          # Main dashboard (skills, PRs, XP)
+  dashboard/
+    page.tsx                  # Main dashboard (server component; builds skill view models)
+    theme.ts                  # Tier display colors (muted metallics) + view-model types
+    SkillsPanel.tsx           # Client grid of skill tiles + detail-sheet open state
+    SkillTile.tsx             # One skill tile (icon, level, XP bar, milestone line)
+    SkillIcon.tsx             # Pixel-style placeholder SVG icons (replace with custom art)
+    SkillDetailSheet.tsx      # Bottom sheet (mobile) / side panel (desktop): hero lift, tier ladder, accessories
+    equipment.ts              # Equipment module: slot config, ladders, buildEquipment() derivation (no DB state)
+    EquipmentPanel.tsx        # OSRS-style paper-doll grid (9 slots) + detail sheet open state
+    EquipmentSlot.tsx         # One 64px bevel-inset slot cell (tinted icon, ghost when empty)
+    EquipmentIcon.tsx         # Pixel-style placeholder slot glyphs (16x16, tinted by tier color)
+    EquipmentDetailSheet.tsx  # Sheet: item name, source, 12-rung armory ladder, next-unlock line
   character-creation/         # New user onboarding
     page.tsx                  # Server component (auth guard)
     CharacterCreationForm.tsx # Client form
     actions.ts                # Server action
   log-workout/
     page.tsx                  # Server component (fetches exercises/skills)
-    WorkoutForm.tsx           # Client form (multi-skill, multi-exercise)
+    WorkoutForm.tsx           # Client form orchestrator: state, handlers, draft, presets, submit
+    form-types.ts             # Shared types (SetEntry, ExerciseEntry, …) + empty-entry helpers
+    SessionXpHeader.tsx       # Sticky session card: per-skill XP bars (derived, always mounted once an exercise is selected)
+    ExerciseCard.tsx          # One exercise entry: picker + set rows + Add Set
+    SetRow.tsx                # Compact one-line strength set row (lbs × reps · RPE · ✓)
+    CardioSetRow.tsx          # Compact one-line cardio row (min · low/med/high · ✓)
+    ExercisePickerButton.tsx  # Trigger replacing the old native <select>
+    ExercisePickerSheet.tsx   # Bottom-sheet exercise picker with search, grouped by skill
     PostWorkoutSummary.tsx    # Results modal (XP, PRs, level-ups)
     actions.ts                # Server action → supabase.rpc('log_multi_skill_workout') and/or 'log_cardio_workout'
   auth/signout/route.ts       # Sign out API route
@@ -68,7 +86,8 @@ DataModel.md                  # Full data model documentation
 - **No intensity slider / workout length input in the UI** — per-set difficulty IS the effort signal
 - **Cardio uses per-exercise `durationMinutes`**
 - **Strength sets are added individually in the form**; there is no bulk repeat-set shortcut
-- **localStorage draft autosave**: on every change, `WorkoutForm` writes `{exercises, sessionSkillXp, date, savedAt}` to `sq:workout-draft:{characterId}`. On mount it reads that key and, if the draft is <24h old, shows a Resume/Discard banner. The key is deleted on successful submit, on Discard, or if the draft is stale.
+- **localStorage draft autosave**: on every change, `WorkoutForm` writes `{exercises, date, savedAt}` to `sq:workout-draft:{characterId}`. On mount it reads that key and, if the draft is <24h old, shows a Resume/Discard banner. The key is deleted on successful submit, on Discard, or if the draft is stale/malformed. (Older drafts carried a `sessionSkillXp` key — it's ignored on read; session XP is now derived from `exercises`.)
+- **Session XP is derived, never tracked**: per-skill session XP in the sticky header is a `useMemo` over `exercises` (sum of `xpAwarded` on completed sets, keyed by skill). There is no separate session-XP state to keep in sync — do not reintroduce one.
 
 ### Active Skills
 
@@ -106,27 +125,40 @@ All 6 skills are active as of migration 013.
 - **Levels**: 1-10, thresholds: `[0, 100, 250, 500, 850, 1350, 2000, 2850, 3900, 5200]`
 - **Tier names** (OSRS-inspired, 12 tiers): Bronze → Iron → Steel → Mithril → Adamantite → Rune → Dragon → Obsidian → Barrows → Bandos → Torva → Greek God. Applies to strength skills (multiplier-gated) and cardio skills (XP-gated).
 
+## Equipment Module (Phase 1 — presentation only, no DB state)
+
+OSRS-style paper doll on the dashboard (`app/dashboard/equipment.ts` + `Equipment*.tsx`). Your tier IS your armor grade: reaching Mithril in Push = Mithril Platebody in the chest slot.
+
+- **Slot mapping**: Helm=Hit Points, Cape=Pull, Chest=Push, Shield=Defense, Legs=Legs, Boots=Endurance, Amulet=total level, Weapon=total strength, Gloves=reserved placeholder (`???` — future grip skill or grind rewards)
+- **Unlocks are ever-reached, never revoked** (OSRS rule: gear earned is never taken away). Currently *derived* from `user_skills.current_tier`, which cannot regress today (strength tiers ← PR 1RM, cardio tiers ← cumulative XP, both monotonic; bodyweight is set once at creation). **If bodyweight editing ever ships, add a `user_skills.max_tier_reached` column and derive from that instead.**
+- **Equipped item = highest unlocked tier** (auto). Manual equipping / fashionscape is Phase 3 (needs a `character_equipment` table — only build if requested).
+- **Amulet** ladder (total level 6–60 → 12 tiers): `[10, 15, 20, 25, 30, 35, 40, 45, 50, 54, 57, 60]` in `equipment.ts`. Greek God Amulet = maxed account.
+- **Weapon** grade: total strength multiplier (S/B/D max lifted ÷ bodyweight) against `total_strength_tiers` ranges `[0, 1.5, 2.25, … 9.0]`, mapped **positionally** onto OSRS tier names in code (the DB table still has old names — Silver/Gold/Platinum/Diamond/Titanium — pending a rename migration). Weapon *type* comes from character class (`CLASS_WEAPONS` map: Deadlift Knight→Longsword, etc.)
+- **Art**: 9 slot glyphs in `EquipmentIcon.tsx` (16×16 pixel SVGs), tinted by `tierColor()` — one glyph per slot × 12 tier colors, not 108 assets. Empty slot = ghost silhouette.
+- **Unlock ceremony**: `PostWorkoutSummary`'s tier-up card lists newly unlocked items (icon + "Unlocked: Rune Platebody") via `newlyUnlockedEquipment(skillName, oldTier, newTier)` from `equipment.ts`. Handles multi-tier jumps (None → Steel unlocks Bronze/Iron/Steel). Skill slots only — amulet/weapon tier-ups aren't reported by the RPCs, so they have no ceremony yet.
+
 ## UI Theme
 
-Dark RPG aesthetic — **not** pixel art. Diablo/WoW armory inspired.
+Two theme systems coexist in `globals.css`:
 
-### CSS Variables (globals.css)
+### 1. Legacy OSRS-inspired theme (landing, login, character creation)
 
-- Backgrounds: `--bg-abyss` (#06060b) → `--bg-base` → `--bg-card` → `--bg-elevated`
-- Text: `--text-primary` (#e8e6f0), `--text-secondary`, `--text-muted`
-- Gold: `--gold` (#f0b429), `--gold-bright` (#fcd34d), `--gold-dim`
-- Borders: `--border-subtle`, `--border-default`, `--border-strong`
+- Backgrounds: `--bg-abyss` → `--bg-base` → `--bg-card` → `--bg-elevated`
+- Text: `--text-primary`, `--text-secondary`, `--text-muted`; Gold: `--gold`, `--gold-bright`, `--gold-dim`
+- Utility classes: `.btn-gold`, `.card-dark`, `.input-dark`, `.xp-bar-track`/`.xp-bar-fill`, `.skill-card`, `.font-display`
 
-### Utility Classes
+### 2. `sq-*` fantasy skill panel theme (dashboard + log-workout, July 2026 redesign)
 
-- `.btn-gold` — Gold gradient CTA with glow
-- `.card-dark` — Standard card (bg-card, border, rounded)
-- `.input-dark` — Dark input styling
-- `.xp-bar-track` / `.xp-bar-fill` — XP progress bars
-- `.skill-card` — Skill card with hover effects
-- `.font-display` — Cinzel font for headers
+Mobile-first, dense, MMO-progression-UI inspired. Scoped under the `.sq-dash` wrapper class, which defines: `--dbg` (#171008 page), `--dpanel` (#241A10), `--dpanel-raised` (#322516), `--dink` (#E4D5A8 text), `--dink-muted` (#9A8A68), `--dgold` (#C9A227), `--dbevel-light` (#5C4A33), `--dbevel-dark` (#0D0906).
 
-### Logo
+- **Surfaces**: 2px bevel borders (light top/left, dark bottom/right), radius ≤4px, no soft shadows. `.sq-panel`, `.sq-panel-raised`, `.sq-bevel-in` (sunken), `.sq-input`.
+- **Type scale — exactly 4 sizes**: 13px letter-spaced uppercase labels (`.sq-label`), 15px body, 22px Cinzel headings (`.sq-heading`), 40px+ hero numbers (`.sq-hero-num`, `.sq-tile-level`). `.sq-num` = tabular nums.
+- **XP bars**: `.sq-xp-track`/`.sq-xp-fill` (thin, inset, gold fill; session bars override fill background with the skill's DB color).
+- **CTA**: `.sq-btn-gold`. **Sheets**: `.sq-sheet`/`.sq-sheet-overlay` — bottom sheet <768px, 400px right panel ≥768px (used by dashboard skill detail + exercise picker).
+- **Tier display colors** live in `app/dashboard/theme.ts` (`TIER_COLORS`, `tierColor()`): muted metallics (Bronze #A8763E, Mithril #7B6FA8, Adamantite #7EA379, Rune #5F8FA8, Obsidian #8A8178, Dragon #B05648, plus extrapolated values for Iron/Steel/Barrows/Bandos/Torva/Greek God). **Tier NAMES are never changed — display colors only.**
+- Tap targets ≥44px; `prefers-reduced-motion` respected; visible gold focus states.
+
+### Logo (both themes)
 
 Two-tone: `<span style="color: var(--gold-bright)">Strength</span><span style="color: var(--text-primary)">Quest</span>`
 
@@ -178,8 +210,8 @@ Most workout apps make you wait until the workout is over to see what you earned
   2. The set row highlights gold (completed state)
   3. The **sticky session XP card** updates immediately — per-skill XP bars animate forward, total XP and weight lifted increment
 - **No "Set banked" receipts** — the float IS the feedback. Once it fades, the only evidence is that your bar moved. Fleeting, not accounting.
-- **Per-skill XP bars** — each skill that receives XP gets its own bar in the session header, showing real DB XP + session gains. Bars use `getLevelForXp()` to recalculate effective level in real-time — if session XP crosses a threshold, the level number updates and the bar resets to the new level's range.
-- **Sticky session card** — the XP bars + summary (`N sets · X,XXX lbs · +Y XP`) stick to the top of the viewport as the workout grows long, so the dopamine feedback is always visible.
+- **Per-skill XP bars** — each skill that receives XP gets its own bar in the session header, showing real DB XP + session gains. Bars use `getLevelForXp()` to recalculate effective level in real-time — if session XP crosses a threshold, the level number updates and the bar resets to the new level's range. Session XP is **derived** from the `exercises` state (see `SessionXpHeader.tsx` + the `useMemo` in `WorkoutForm.tsx`) — there is no separate tracked map.
+- **Sticky session card** — the XP bars + summary (`N sets · X,XXX lbs · +Y XP`) stick to the top of the viewport as the workout grows long, so the dopamine feedback is always visible. It mounts as soon as any exercise is selected (dimmed/zero state before the first Done) — it must never be conditionally inserted mid-session (iOS Safari can fail to paint a freshly inserted `position: sticky` element until the next scroll).
 - **Architecture**: pure client-side math on Done tap (0 API calls, 0 DB queries, 0ms latency). The client imports `calculateStrengthSetXp` / `calculateCardioSetXp` from `lib/utils/calculate-xp.ts`. On submit, the server action imports the same functions, re-derives XP per set/entry, and attaches `xpAwarded` to the RPC payload. Client and server agree by construction because they share the same module.
 - **Abandoned workout recovery**: in-progress state is persisted to `localStorage` (`sq:workout-draft:{characterId}`) on every change. On mount, a draft <24h old offers a Resume/Discard banner. The key is cleared on successful submit.
 - **XP formula**: the bodies in `calculate-xp.ts` are placeholders until the XP Formula Design exercise (see `Backlog.md`) lands. The *infrastructure* is done; swapping the formula is a drop-in change to that one file.
