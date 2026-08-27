@@ -10,26 +10,60 @@ import { logWorkout, type WorkoutResult } from './actions'
 import PostWorkoutSummary from './PostWorkoutSummary'
 import ExerciseCard from './ExerciseCard'
 import SessionXpHeader from './SessionXpHeader'
+import CombatFrame from './CombatFrame'
+import {
+  bossNameForSkill,
+  deriveBossHp,
+  hitLine,
+  introLine,
+  killLine,
+  overkillLine,
+} from './combat'
+import {
+  playEngage,
+  playHit,
+  playKillSequence,
+  playOverkill,
+  playTick,
+  setSoundEnabled as setAudioSoundEnabled,
+  unlockAudio,
+  vibrate,
+} from './sound'
 import {
   emptyCardioSet,
   emptyEntry,
   emptySet,
   type ActiveXpDrop,
+  type BossState,
   type CardioSetEntry,
+  type CombatLogEntry,
   type Exercise,
   type ExerciseEntry,
+  type LastPerformance,
   type SetEntry,
 } from './form-types'
 
 const DRAFT_STORAGE_PREFIX = 'sq:workout-draft:'
 const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const COMBAT_PREFS_KEY = 'sq:combat-prefs'
 
 // Session XP is derived from `exercises`, so drafts only need the entries + date.
 // Older drafts may carry an extra `sessionSkillXp` key — it is simply ignored on read.
+// `boss`/`combatLog` are the in-progress fight, recovered like everything else.
 type DraftPayload = {
   exercises: ExerciseEntry[]
   date: string
   savedAt: number
+  boss: BossState | null
+  combatLog: CombatLogEntry[]
+}
+
+// Combat Mode / Sound are stable preferences, not per-session state — they
+// live in their own key so they don't reset every time a workout is logged
+// (unlike boss/combatLog, which are genuinely part of the session draft).
+type CombatPrefs = {
+  combatMode: boolean
+  soundEnabled: boolean
 }
 
 function formatRelativeTime(ms: number): string {
@@ -49,6 +83,8 @@ type Props = {
   skillColors: Record<number, string>
   skillOrder: number[]
   skillXp: Record<number, { currentXp: number; currentLevel: number }>
+  lastPerformanceByExercise: Record<string, LastPerformance>
+  recentSessionXp: number[]
 }
 
 export default function WorkoutForm({
@@ -59,6 +95,8 @@ export default function WorkoutForm({
   skillColors,
   skillOrder,
   skillXp,
+  lastPerformanceByExercise,
+  recentSessionXp,
 }: Props) {
   const draftKey = `${DRAFT_STORAGE_PREFIX}${characterId}`
 
@@ -77,6 +115,15 @@ export default function WorkoutForm({
   const [draftRestore, setDraftRestore] = useState<{ draft: DraftPayload; ageMs: number } | null>(null)
   const [draftHydrated, setDraftHydrated] = useState(false)
   const xpDropIdRef = useRef(0)
+
+  // Combat Frame — see RestCombatSpec.md. combatMode/soundEnabled are stable
+  // device preferences (sq:combat-prefs); boss/combatLog are session state
+  // that rides in the same draft as exercises/date.
+  const [combatMode, setCombatMode] = useState(true)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [boss, setBoss] = useState<BossState | null>(null)
+  const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([])
+  const [killPulse, setKillPulse] = useState(0)
 
   // --- Helpers ---
   const getExerciseInfo = (exerciseId: string) => {
@@ -103,6 +150,20 @@ export default function WorkoutForm({
     return totals
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercises, allExercises])
+
+  // Boss HP is derived the same way — never decremented imperatively, so
+  // un-completing a set (which already resets xpAwarded to 0) heals the
+  // boss bar for free instead of risking drift.
+  const damageDealt = useMemo(() => {
+    let total = 0
+    for (const ex of exercises) {
+      for (const s of ex.sets) if (s.completed) total += s.xpAwarded
+      for (const cs of ex.cardioSets) if (cs.completed) total += cs.xpAwarded
+    }
+    return total
+  }, [exercises])
+  const bossHpRemaining = boss ? Math.max(0, boss.hpMax - damageDealt) : 0
+  const overkill = boss ? Math.max(0, damageDealt - boss.hpMax) : 0
 
   const completedSetCount = exercises.reduce(
     (total, exercise) =>
@@ -143,6 +204,30 @@ export default function WorkoutForm({
     }
   }, [draftKey])
 
+  // --- Combat prefs: read once on mount (device-wide, not per-character) ---
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COMBAT_PREFS_KEY)
+      if (!raw) return
+      const prefs = JSON.parse(raw) as Partial<CombatPrefs>
+      if (typeof prefs.combatMode === 'boolean') setCombatMode(prefs.combatMode)
+      if (typeof prefs.soundEnabled === 'boolean') setSoundEnabled(prefs.soundEnabled)
+    } catch {
+      // ignore — defaults stand
+    }
+  }, [])
+
+  // --- Combat prefs: write + sync the audio engine on change ---
+  useEffect(() => {
+    setAudioSoundEnabled(soundEnabled)
+    try {
+      const payload: CombatPrefs = { combatMode, soundEnabled }
+      window.localStorage.setItem(COMBAT_PREFS_KEY, JSON.stringify(payload))
+    } catch {
+      // quota or serialization failure — drop silently, defaults still work
+    }
+  }, [combatMode, soundEnabled])
+
   // --- localStorage draft: write on every meaningful change ---
   useEffect(() => {
     if (!draftHydrated) return
@@ -161,18 +246,22 @@ export default function WorkoutForm({
       exercises,
       date: workoutDate,
       savedAt: Date.now(),
+      boss,
+      combatLog,
     }
     try {
       window.localStorage.setItem(draftKey, JSON.stringify(payload))
     } catch {
       // quota or serialization failure — drop silently
     }
-  }, [exercises, workoutDate, draftKey, draftHydrated])
+  }, [exercises, workoutDate, draftKey, draftHydrated, boss, combatLog])
 
   const restoreDraft = () => {
     if (!draftRestore) return
     setExercises(draftRestore.draft.exercises)
     setWorkoutDate(draftRestore.draft.date)
+    setBoss(draftRestore.draft.boss ?? null)
+    setCombatLog(draftRestore.draft.combatLog ?? [])
     setDraftRestore(null)
     setDraftHydrated(true)
   }
@@ -305,7 +394,60 @@ export default function WorkoutForm({
     }, 900)
   }
 
+  // Boss assignment + combat log + combat sounds. Gated on combatMode
+  // internally (unlike the tick sound, which fires regardless — see the
+  // call sites in markSetCompleted/markCardioSetCompleted). `damageDealt`
+  // here reflects state as of the last render, i.e. before this hit — the
+  // same synchronous-computed-before-setExercises trick createXpDrop uses.
+  const handleCombatEvent = (
+    skillId: number | null,
+    exerciseName: string,
+    detail: string,
+    dmg: number
+  ) => {
+    if (!combatMode) return
+
+    let currentBoss = boss
+    if (!currentBoss && skillId) {
+      const { hp } = deriveBossHp(recentSessionXp)
+      currentBoss = { name: bossNameForSkill(skillId), skillId, hpMax: hp }
+      setBoss(currentBoss)
+      setCombatLog((log) => [...log, introLine(currentBoss!.name)])
+      playEngage()
+    }
+    if (!currentBoss) return
+
+    const remainingBefore = Math.max(0, currentBoss.hpMax - damageDealt)
+    const heavy = currentBoss.hpMax > 0 && dmg / currentBoss.hpMax > 0.12
+
+    if (remainingBefore <= 0) {
+      // Boss already dead — flavor only, never buys extra rolls.
+      setCombatLog((log) => [...log, overkillLine(currentBoss!.name)])
+      playOverkill()
+      return
+    }
+
+    if (dmg >= remainingBefore) {
+      const over = dmg - remainingBefore
+      setCombatLog((log) => [
+        ...log,
+        ...killLine(currentBoss!.name, exerciseName, detail, dmg, heavy, currentBoss!.hpMax, over),
+      ])
+      playKillSequence(heavy)
+      vibrate(200)
+      setKillPulse((n) => n + 1)
+    } else {
+      const remainingAfter = remainingBefore - dmg
+      setCombatLog((log) => [
+        ...log,
+        ...hitLine(currentBoss!.name, exerciseName, detail, dmg, heavy, remainingAfter, currentBoss!.hpMax),
+      ])
+      playHit(heavy)
+    }
+  }
+
   const markSetCompleted = (exerciseIdx: number, setIdx: number) => {
+    unlockAudio()
     const exercise = exercises[exerciseIdx]
     const set = exercise.sets[setIdx]
     const reps = parseInt(set.reps)
@@ -344,6 +486,8 @@ export default function WorkoutForm({
       )
     )
     createXpDrop(exerciseIdx, setIdx, awardedXp, colorHex)
+    playTick()
+    handleCombatEvent(skillId, info?.name ?? 'Exercise', `${weight} × ${reps}`, awardedXp)
   }
 
   const markSetEditable = (exerciseIdx: number, setIdx: number) => {
@@ -364,6 +508,7 @@ export default function WorkoutForm({
   }
 
   const markCardioSetCompleted = (exerciseIdx: number, setIdx: number) => {
+    unlockAudio()
     const exercise = exercises[exerciseIdx]
     const set = exercise.cardioSets[setIdx]
     const duration = parseInt(set.durationMinutes)
@@ -384,6 +529,10 @@ export default function WorkoutForm({
       )
     )
     createXpDrop(exerciseIdx, setIdx, awardedXp, colorHex)
+    playTick()
+    const info = getExerciseInfo(exercise.exerciseId)
+    const intensityLabel = set.intensity === 'high' ? 'High' : set.intensity === 'low' ? 'Low' : 'Med'
+    handleCombatEvent(skillId, info?.name ?? 'Exercise', `${duration} min · ${intensityLabel}`, awardedXp)
   }
 
   const markCardioSetEditable = (exerciseIdx: number, setIdx: number) => {
@@ -435,6 +584,43 @@ export default function WorkoutForm({
     const mode: 'strength' | 'cardio' = info?.tracks_duration ? 'cardio' : 'strength'
     updated[idx] = { ...updated[idx], exerciseId: id, mode }
     setExercises(updated)
+  }
+
+  // Replaces the entry's sets with whatever was logged last time. Never
+  // marks sets completed — the user still taps Done per set for the XP float.
+  const prefillFromLastTime = (exerciseIdx: number) => {
+    setExercises((current) =>
+      current.map((entry, i) => {
+        if (i !== exerciseIdx) return entry
+        const lp = lastPerformanceByExercise[entry.exerciseId]
+        if (!lp) return entry
+        if (entry.mode === 'cardio') {
+          if (lp.durationMinutes == null) return entry
+          return {
+            ...entry,
+            cardioSets: [
+              {
+                durationMinutes: String(lp.durationMinutes),
+                intensity: lp.intensity ?? 'med',
+                completed: false,
+                xpAwarded: 0,
+              },
+            ],
+          }
+        }
+        if (!lp.sets || lp.sets.length === 0) return entry
+        return {
+          ...entry,
+          sets: lp.sets.map((s) => ({
+            weight: s.weight != null ? String(s.weight) : '',
+            reps: s.reps != null ? String(s.reps) : '',
+            rpe: s.rpe != null ? String(s.rpe) : '',
+            completed: false,
+            xpAwarded: 0,
+          })),
+        }
+      })
+    )
   }
 
   const addSet = (exerciseIdx: number) => {
@@ -581,6 +767,8 @@ export default function WorkoutForm({
     setResult(null)
     setExercises([emptyEntry()])
     setActiveDrops([])
+    setBoss(null)
+    setCombatLog([])
     const today = new Date()
     const year = today.getFullYear()
     const month = String(today.getMonth() + 1).padStart(2, '0')
@@ -641,6 +829,20 @@ export default function WorkoutForm({
           totalWeightLifted={totalWeightLifted}
         />
 
+        <CombatFrame
+          visible={hasAnySelectedExercise}
+          combatMode={combatMode}
+          onCombatModeChange={setCombatMode}
+          soundEnabled={soundEnabled}
+          onSoundEnabledChange={setSoundEnabled}
+          boss={boss}
+          bossHpRemaining={bossHpRemaining}
+          overkill={overkill}
+          combatLog={combatLog}
+          skillColors={skillColors}
+          killPulse={killPulse}
+        />
+
         {error && (
           <div
             className="rounded p-4"
@@ -684,6 +886,8 @@ export default function WorkoutForm({
                 allExercises={allExercises}
                 skillNames={skillNames}
                 skillOrder={skillOrder}
+                lastPerformanceByExercise={lastPerformanceByExercise}
+                onPrefill={() => prefillFromLastTime(exIdx)}
                 onSelectExercise={(id) => updateExerciseId(exIdx, id)}
                 onRemoveExercise={() => removeExercise(exIdx)}
                 onUpdateSet={(setIdx, field, value) => updateSet(exIdx, setIdx, field, value)}

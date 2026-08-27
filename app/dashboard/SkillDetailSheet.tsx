@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Sparkline from './Sparkline'
 import { tierColor, type SkillPanelModel } from './theme'
 
 type Props = {
@@ -147,6 +148,23 @@ export default function SkillDetailSheet({ skill, onClose }: Props) {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Trend sparkline (hidden below 3 sessions) */}
+          {skill.trend.length >= 3 && (
+            <div className="sq-panel-raised p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="sq-label">
+                  {skill.skillType === 'strength' ? 'Est. 1RM Trend' : 'XP Trend'}
+                </p>
+                <span className="sq-num" style={{ fontSize: '13px', color }}>
+                  {skill.skillType === 'strength'
+                    ? `${Math.round(skill.trend[skill.trend.length - 1].value)} lbs`
+                    : `+${Math.round(skill.trend[skill.trend.length - 1].value)} XP`}
+                </span>
+              </div>
+              <Sparkline points={skill.trend} color={color} />
             </div>
           )}
 

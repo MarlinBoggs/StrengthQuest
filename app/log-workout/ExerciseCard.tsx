@@ -3,7 +3,15 @@
 import CardioSetRow from './CardioSetRow'
 import ExercisePickerButton from './ExercisePickerButton'
 import SetRow from './SetRow'
-import type { ActiveXpDrop, Exercise, ExerciseEntry } from './form-types'
+import {
+  formatDaysAgo,
+  formatLastPerformanceSummary,
+  isEntryUntouched,
+  type ActiveXpDrop,
+  type Exercise,
+  type ExerciseEntry,
+  type LastPerformance,
+} from './form-types'
 
 type Props = {
   exercise: ExerciseEntry
@@ -15,6 +23,8 @@ type Props = {
   allExercises: Exercise[]
   skillNames: Record<number, string>
   skillOrder: number[]
+  lastPerformanceByExercise: Record<string, LastPerformance>
+  onPrefill: () => void
   onSelectExercise: (exerciseId: string) => void
   onRemoveExercise: () => void
   onUpdateSet: (setIdx: number, field: 'weight' | 'reps' | 'rpe', value: string) => void
@@ -37,6 +47,8 @@ export default function ExerciseCard({
   allExercises,
   skillNames,
   skillOrder,
+  lastPerformanceByExercise,
+  onPrefill,
   onSelectExercise,
   onRemoveExercise,
   onUpdateSet,
@@ -49,6 +61,8 @@ export default function ExerciseCard({
   onAddCardioSet,
 }: Props) {
   const isCardio = exercise.mode === 'cardio'
+  const lastPerformance = lastPerformanceByExercise[exercise.exerciseId] ?? null
+  const showPrefill = !!exercise.exerciseId && !!lastPerformance && isEntryUntouched(exercise)
 
   return (
     <div
@@ -62,6 +76,7 @@ export default function ExerciseCard({
             allExercises={allExercises}
             skillNames={skillNames}
             skillOrder={skillOrder}
+            lastPerformanceByExercise={lastPerformanceByExercise}
             disabled={loading}
             onSelect={onSelectExercise}
           />
@@ -89,6 +104,23 @@ export default function ExerciseCard({
           Remove
         </button>
       </div>
+
+      {showPrefill && lastPerformance && (
+        <button
+          type="button"
+          onClick={onPrefill}
+          className="w-full flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded transition-colors"
+          style={{ fontSize: '13px', minHeight: '44px', background: 'var(--dbg)', border: '1px dashed var(--dbevel-light)' }}
+          disabled={loading}
+        >
+          <span className="truncate" style={{ color: 'var(--dink-muted)' }}>
+            Last: {formatLastPerformanceSummary(lastPerformance)} · {formatDaysAgo(lastPerformance.workoutDate)}
+          </span>
+          <span className="shrink-0 font-semibold uppercase tracking-wider" style={{ color: 'var(--dgold)' }}>
+            Prefill
+          </span>
+        </button>
+      )}
 
       <div className="space-y-1">
         {isCardio

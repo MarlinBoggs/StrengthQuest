@@ -4,8 +4,10 @@ import { XP_THRESHOLDS } from '@/lib/utils/xp-thresholds'
 import ThemeToggle from '@/app/components/ThemeToggle'
 import SkillsPanel from './SkillsPanel'
 import EquipmentPanel from './EquipmentPanel'
+import RecentSessionsTeaser from './RecentSessionsTeaser'
 import { buildEquipment } from './equipment'
 import type { SkillPanelModel } from './theme'
+import type { WorkoutSummary } from '@/app/history/types'
 
 interface TierEntry {
   name: string
@@ -52,10 +54,29 @@ export default async function DashboardPage() {
   const { data: exercisePrs } = await supabase
     .rpc('get_exercise_prs', { p_character_id: character.id })
 
+  // Recent sessions teaser (full history lives at /history)
+  const { data: recentSessions } = await supabase
+    .rpc('get_workout_history', { p_character_id: character.id, p_limit: 5 })
+
   const activeSkills = userSkills?.filter((us: any) => us.skills.is_active) ?? []
   const activeStrengthSkills = activeSkills.filter((us: any) => us.skills.skill_type === 'strength')
   const inactiveSkills = userSkills?.filter((us: any) => !us.skills.is_active) ?? []
   const className = (character.character_classes as any)?.name ?? 'Unknown Class'
+
+  // Sparkline trend per skill (est. 1RM for strength, XP-per-session for cardio)
+  const trendResults = await Promise.all(
+    activeSkills.map((us: any) =>
+      supabase.rpc('get_skill_trend', { p_character_id: character.id, p_skill_id: us.skill_id, p_limit: 10 })
+    )
+  )
+  const trendBySkill: Record<number, Array<{ date: string; value: number }>> = {}
+  activeSkills.forEach((us: any, i: number) => {
+    const rows = trendResults[i].data ?? []
+    // RPC returns most-recent-first; reverse to chronological for the sparkline.
+    trendBySkill[us.skill_id] = [...rows]
+      .reverse()
+      .map((r: any) => ({ date: r.workout_date, value: Number(r.value) }))
+  })
 
   // Group exercise PRs by skill_id
   const prsBySkill: Record<number, Array<{ exercise_id: number; exercise_name: string; is_primary: boolean; best_1rm: number; best_weight: number; best_reps: number; max_weight_lifted: number }>> = {}
@@ -239,6 +260,7 @@ export default async function DashboardPage() {
         weight: pr.best_weight,
         reps: pr.best_reps,
       })),
+      trend: trendBySkill[us.skill_id] ?? [],
     }
   })
 
@@ -342,6 +364,9 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Recent sessions teaser (full history at /history) */}
+        <RecentSessionsTeaser sessions={(recentSessions ?? []) as WorkoutSummary[]} />
 
         {/* Skill tiles + detail sheet */}
         <SkillsPanel skills={skillModels} />

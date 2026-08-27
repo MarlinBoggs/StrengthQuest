@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Exercise } from './form-types'
+import { formatDaysAgo, formatLastPerformanceSummary, type Exercise, type LastPerformance } from './form-types'
 
 type Props = {
   allExercises: Exercise[]
   skillNames: Record<number, string>
   skillOrder: number[]
+  lastPerformanceByExercise: Record<string, LastPerformance>
   currentId: string
   onSelect: (exerciseId: string) => void
   onClose: () => void
@@ -16,6 +17,7 @@ export default function ExercisePickerSheet({
   allExercises,
   skillNames,
   skillOrder,
+  lastPerformanceByExercise,
   currentId,
   onSelect,
   onClose,
@@ -134,12 +136,13 @@ export default function ExercisePickerSheet({
                 <div className="space-y-1">
                   {group.exercises.map((ex) => {
                     const selected = String(ex.id) === currentId
+                    const lp = lastPerformanceByExercise[String(ex.id)]
                     return (
                       <button
                         key={ex.id}
                         type="button"
                         onClick={() => onSelect(String(ex.id))}
-                        className="w-full flex items-center justify-between gap-3 rounded px-3 text-left transition-colors"
+                        className="w-full flex items-center justify-between gap-3 rounded px-3 py-1.5 text-left transition-colors"
                         style={{
                           fontSize: '15px',
                           minHeight: '44px',
@@ -149,7 +152,14 @@ export default function ExercisePickerSheet({
                         }}
                         aria-current={selected || undefined}
                       >
-                        <span className="truncate">{ex.name}</span>
+                        <span className="flex flex-col min-w-0">
+                          <span className="truncate">{ex.name}</span>
+                          {lp && (
+                            <span className="truncate" style={{ fontSize: '12px', color: 'var(--dink-muted)' }}>
+                              Last: {formatLastPerformanceSummary(lp)} · {formatDaysAgo(lp.workoutDate)}
+                            </span>
+                          )}
+                        </span>
                         {ex.is_primary && <span aria-label="Hero lift" title="Hero lift">⚔</span>}
                       </button>
                     )

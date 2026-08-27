@@ -2,13 +2,14 @@
 
 import { useRef, useState } from 'react'
 import ExercisePickerSheet from './ExercisePickerSheet'
-import type { Exercise } from './form-types'
+import type { Exercise, LastPerformance } from './form-types'
 
 type Props = {
   exerciseId: string
   allExercises: Exercise[]
   skillNames: Record<number, string>
   skillOrder: number[]
+  lastPerformanceByExercise: Record<string, LastPerformance>
   disabled: boolean
   onSelect: (exerciseId: string) => void
 }
@@ -18,6 +19,7 @@ export default function ExercisePickerButton({
   allExercises,
   skillNames,
   skillOrder,
+  lastPerformanceByExercise,
   disabled,
   onSelect,
 }: Props) {
@@ -62,6 +64,7 @@ export default function ExercisePickerButton({
           allExercises={allExercises}
           skillNames={skillNames}
           skillOrder={skillOrder}
+          lastPerformanceByExercise={lastPerformanceByExercise}
           currentId={exerciseId}
           onSelect={(id) => {
             onSelect(id)

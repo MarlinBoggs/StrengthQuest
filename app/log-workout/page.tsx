@@ -56,6 +56,31 @@ export default async function LogWorkoutPage() {
     skillXp[us.skill_id] = { currentXp: us.current_xp, currentLevel: us.current_level }
   }
 
+  const { data: lastPerformance } = await supabase
+    .rpc('get_last_exercise_performance', { p_character_id: character.id })
+
+  const lastPerformanceByExercise: Record<string, {
+    workoutDate: string
+    durationMinutes: number | null
+    intensity: 'low' | 'med' | 'high' | null
+    sets: { weight: number | null; reps: number | null; rpe: number | null }[] | null
+  }> = {}
+  for (const lp of lastPerformance ?? []) {
+    lastPerformanceByExercise[String(lp.exercise_id)] = {
+      workoutDate: lp.workout_date,
+      durationMinutes: lp.duration_minutes,
+      intensity: lp.intensity,
+      sets: lp.sets,
+    }
+  }
+
+  // Last 5 completed sessions' total XP — feeds the Combat Frame boss-HP
+  // formula (RestCombatSpec.md). Never includes the in-progress session,
+  // since this is fetched before any workout on this page is submitted.
+  const { data: recentSessions } = await supabase
+    .rpc('get_workout_history', { p_character_id: character.id, p_limit: 5 })
+  const recentSessionXp = (recentSessions ?? []).map((w: { total_xp: number }) => w.total_xp)
+
   const skillOrder = activeSkillIds
 
   return (
@@ -90,6 +115,8 @@ export default async function LogWorkoutPage() {
           skillColors={skillColors}
           skillOrder={skillOrder}
           skillXp={skillXp}
+          lastPerformanceByExercise={lastPerformanceByExercise}
+          recentSessionXp={recentSessionXp}
         />
       </main>
     </div>

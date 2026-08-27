@@ -36,6 +36,15 @@ export type AccessoryLift = {
   reps: number
 }
 
+// One point per past session for the skill sparkline. `value` is est. 1RM
+// for strength skills (from get_skill_trend), total XP that session for
+// cardio/hiit/mobility skills. Oldest first (reversed from the RPC's
+// most-recent-first order) so it renders left-to-right chronologically.
+export type TrendPoint = {
+  date: string
+  value: number
+}
+
 export type SkillPanelModel = {
   skillId: number
   name: string
@@ -53,4 +62,5 @@ export type SkillPanelModel = {
   milestoneTier: string | null
   hero: HeroLift | null
   accessories: AccessoryLift[]
+  trend: TrendPoint[]
 }
