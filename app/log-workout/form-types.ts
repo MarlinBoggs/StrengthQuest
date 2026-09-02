@@ -50,13 +50,18 @@ export type BossState = {
 }
 
 // One row in the combat log. Phrasing is rolled once at append time and
-// never re-rolled — this is tracked, append-only state (same category as
-// ActiveXpDrop), not derived.
+// never re-rolled — but each entry is tagged with the set that produced it
+// (`sourceKey`, e.g. "2:set:0" or "1:cardio:3") so a reconciliation effect
+// in WorkoutForm can prune it if that exact set later becomes un-completed
+// (edited, toggled off, or cleared back to empty). Entries with no
+// sourceKey (none currently — reserved for session-level events like a
+// future "escape" line) are never pruned.
 export type CombatLogEntry = {
   id: number
   text: string
   hp?: string
   cls?: 'intro' | 'kill' | 'overkill' | 'escape' | 'event'
+  sourceKey?: string
 }
 
 // One row per exercise from get_last_exercise_performance — the character's

@@ -165,6 +165,34 @@ export default function WorkoutForm({
   const bossHpRemaining = boss ? Math.max(0, boss.hpMax - damageDealt) : 0
   const overkill = boss ? Math.max(0, damageDealt - boss.hpMax) : 0
 
+  // Reconcile combatLog/boss against `exercises` whenever it changes — this
+  // is what makes un-completing a set (edit, toggle off, or clear back to
+  // empty) also remove that set's combat-log lines, not just heal the
+  // derived HP bar. If nothing is completed anymore, the boss itself resets
+  // too, so there's no stale "engaged" name/bar sitting over an empty log.
+  useEffect(() => {
+    const completedKeys = new Set<string>()
+    exercises.forEach((ex, exIdx) => {
+      ex.sets.forEach((s, setIdx) => {
+        if (s.completed) completedKeys.add(`${exIdx}:set:${setIdx}`)
+      })
+      ex.cardioSets.forEach((cs, setIdx) => {
+        if (cs.completed) completedKeys.add(`${exIdx}:cardio:${setIdx}`)
+      })
+    })
+
+    if (completedKeys.size === 0) {
+      setBoss((current) => (current ? null : current))
+      setCombatLog((current) => (current.length ? [] : current))
+      return
+    }
+
+    setCombatLog((current) => {
+      const pruned = current.filter((e) => !e.sourceKey || completedKeys.has(e.sourceKey))
+      return pruned.length === current.length ? current : pruned
+    })
+  }, [exercises])
+
   const completedSetCount = exercises.reduce(
     (total, exercise) =>
       exercise.mode === 'cardio'
@@ -399,11 +427,14 @@ export default function WorkoutForm({
   // call sites in markSetCompleted/markCardioSetCompleted). `damageDealt`
   // here reflects state as of the last render, i.e. before this hit — the
   // same synchronous-computed-before-setExercises trick createXpDrop uses.
+  // `sourceKey` tags every entry this call produces so the reconciliation
+  // effect below can remove them if this exact set later gets un-completed.
   const handleCombatEvent = (
     skillId: number | null,
     exerciseName: string,
     detail: string,
-    dmg: number
+    dmg: number,
+    sourceKey: string
   ) => {
     if (!combatMode) return
 
@@ -412,7 +443,7 @@ export default function WorkoutForm({
       const { hp } = deriveBossHp(recentSessionXp)
       currentBoss = { name: bossNameForSkill(skillId), skillId, hpMax: hp }
       setBoss(currentBoss)
-      setCombatLog((log) => [...log, introLine(currentBoss!.name)])
+      setCombatLog((log) => [...log, introLine(currentBoss!.name, sourceKey)])
       playEngage()
     }
     if (!currentBoss) return
@@ -422,7 +453,7 @@ export default function WorkoutForm({
 
     if (remainingBefore <= 0) {
       // Boss already dead — flavor only, never buys extra rolls.
-      setCombatLog((log) => [...log, overkillLine(currentBoss!.name)])
+      setCombatLog((log) => [...log, overkillLine(currentBoss!.name, sourceKey)])
       playOverkill()
       return
     }
@@ -431,7 +462,7 @@ export default function WorkoutForm({
       const over = dmg - remainingBefore
       setCombatLog((log) => [
         ...log,
-        ...killLine(currentBoss!.name, exerciseName, detail, dmg, heavy, currentBoss!.hpMax, over),
+        ...killLine(currentBoss!.name, exerciseName, detail, dmg, heavy, currentBoss!.hpMax, over, sourceKey),
       ])
       playKillSequence(heavy)
       vibrate(200)
@@ -440,7 +471,7 @@ export default function WorkoutForm({
       const remainingAfter = remainingBefore - dmg
       setCombatLog((log) => [
         ...log,
-        ...hitLine(currentBoss!.name, exerciseName, detail, dmg, heavy, remainingAfter, currentBoss!.hpMax),
+        ...hitLine(currentBoss!.name, exerciseName, detail, dmg, heavy, remainingAfter, currentBoss!.hpMax, sourceKey),
       ])
       playHit(heavy)
     }
@@ -487,7 +518,7 @@ export default function WorkoutForm({
     )
     createXpDrop(exerciseIdx, setIdx, awardedXp, colorHex)
     playTick()
-    handleCombatEvent(skillId, info?.name ?? 'Exercise', `${weight} × ${reps}`, awardedXp)
+    handleCombatEvent(skillId, info?.name ?? 'Exercise', `${weight} × ${reps}`, awardedXp, `${exerciseIdx}:set:${setIdx}`)
   }
 
   const markSetEditable = (exerciseIdx: number, setIdx: number) => {
@@ -532,7 +563,7 @@ export default function WorkoutForm({
     playTick()
     const info = getExerciseInfo(exercise.exerciseId)
     const intensityLabel = set.intensity === 'high' ? 'High' : set.intensity === 'low' ? 'Low' : 'Med'
-    handleCombatEvent(skillId, info?.name ?? 'Exercise', `${duration} min · ${intensityLabel}`, awardedXp)
+    handleCombatEvent(skillId, info?.name ?? 'Exercise', `${duration} min · ${intensityLabel}`, awardedXp, `${exerciseIdx}:cardio:${setIdx}`)
   }
 
   const markCardioSetEditable = (exerciseIdx: number, setIdx: number) => {
@@ -788,6 +819,22 @@ export default function WorkoutForm({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Date — compact, single row, always at the top */}
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="date" className="sq-label shrink-0">
+            Date
+          </label>
+          <input
+            type="date"
+            id="date"
+            value={workoutDate}
+            onChange={(e) => setWorkoutDate(e.target.value)}
+            className="sq-input px-2 py-1"
+            style={{ fontSize: '13px', minHeight: '32px', maxWidth: '160px' }}
+            disabled={loading}
+          />
+        </div>
+
         {draftRestore && (
           <div className="sq-panel-raised p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -854,21 +901,6 @@ export default function WorkoutForm({
             <p style={{ fontSize: '15px', fontWeight: 500, color: '#fca5a5' }}>{error}</p>
           </div>
         )}
-
-        {/* Date */}
-        <div>
-          <label htmlFor="date" className="sq-label block mb-2">
-            Date
-          </label>
-          <input
-            type="date"
-            id="date"
-            value={workoutDate}
-            onChange={(e) => setWorkoutDate(e.target.value)}
-            className="sq-input w-full px-3 py-2"
-            disabled={loading}
-          />
-        </div>
 
         {/* Exercises */}
         <div className="space-y-4">

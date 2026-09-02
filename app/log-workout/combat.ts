@@ -97,12 +97,22 @@ function nextLogId(): number {
   return logIdCounter
 }
 
-function entry(text: string, opts?: { hp?: string; cls?: CombatLogEntry['cls'] }): CombatLogEntry {
-  return { id: nextLogId(), text, hp: opts?.hp, cls: opts?.cls }
+function entry(
+  text: string,
+  opts?: { hp?: string; cls?: CombatLogEntry['cls']; sourceKey?: string }
+): CombatLogEntry {
+  return { id: nextLogId(), text, hp: opts?.hp, cls: opts?.cls, sourceKey: opts?.sourceKey }
 }
 
-export function introLine(bossName: string): CombatLogEntry {
-  return entry(pick(INTRO_PHRASES)(bossName), { cls: 'intro' })
+/**
+ * Every line below takes `sourceKey` — the set that produced it (see
+ * CombatLogEntry). WorkoutForm's reconciliation effect prunes an entry
+ * whenever its source set is no longer completed (edited, toggled off, or
+ * cleared), so un-checking a set removes its combat-log lines too, not
+ * just the derived HP bar.
+ */
+export function introLine(bossName: string, sourceKey: string): CombatLogEntry {
+  return entry(pick(INTRO_PHRASES)(bossName), { cls: 'intro', sourceKey })
 }
 
 /**
@@ -119,12 +129,13 @@ export function hitLine(
   damage: number,
   heavy: boolean,
   hpRemaining: number,
-  hpMax: number
+  hpMax: number,
+  sourceKey: string
 ): CombatLogEntry[] {
   const phrase = heavy ? pick(HEAVY_HIT_PHRASES) : pick(HIT_PHRASES)
   return [
-    entry(phrase(bossName, damage)),
-    entry(`${exerciseName} lands true — ${detail}.`, { hp: `${hpRemaining}/${hpMax}` }),
+    entry(phrase(bossName, damage), { sourceKey }),
+    entry(`${exerciseName} lands true — ${detail}.`, { hp: `${hpRemaining}/${hpMax}`, sourceKey }),
   ]
 }
 
@@ -139,21 +150,22 @@ export function killLine(
   damage: number,
   heavy: boolean,
   hpMax: number,
-  over: number
+  over: number,
+  sourceKey: string
 ): CombatLogEntry[] {
   const phrase = heavy ? pick(HEAVY_HIT_PHRASES) : pick(HIT_PHRASES)
   const lines = [
-    entry(phrase(bossName, damage)),
-    entry(`${exerciseName} lands true — ${detail}.`, { hp: `0/${hpMax}` }),
-    entry(pick(KILL_PHRASES)(bossName), { cls: 'kill' }),
+    entry(phrase(bossName, damage), { sourceKey }),
+    entry(`${exerciseName} lands true — ${detail}.`, { hp: `0/${hpMax}`, sourceKey }),
+    entry(pick(KILL_PHRASES)(bossName), { cls: 'kill', sourceKey }),
   ]
-  if (over > 0) lines.push(entry(`Overkill +${over}.`, { cls: 'overkill' }))
+  if (over > 0) lines.push(entry(`Overkill +${over}.`, { cls: 'overkill', sourceKey }))
   return lines
 }
 
 /** Flavor-only line for damage landed after the boss is already dead. */
-export function overkillLine(bossName: string): CombatLogEntry {
-  return entry(pick(POST_KILL_PHRASES)(bossName), { cls: 'overkill' })
+export function overkillLine(bossName: string, sourceKey: string): CombatLogEntry {
+  return entry(pick(POST_KILL_PHRASES)(bossName), { cls: 'overkill', sourceKey })
 }
 
 /** Ending the session with the boss still alive — never framed as a penalty. */
