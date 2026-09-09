@@ -8,6 +8,7 @@ import {
 } from '@/lib/utils/calculate-xp'
 import { logWorkout, type WorkoutResult } from './actions'
 import PostWorkoutSummary from './PostWorkoutSummary'
+import ShareCard from './ShareCard'
 import ExerciseCard from './ExerciseCard'
 import SessionXpHeader from './SessionXpHeader'
 import CombatFrame from './CombatFrame'
@@ -111,6 +112,7 @@ export default function WorkoutForm({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<WorkoutResult | null>(null)
+  const [showShareCard, setShowShareCard] = useState(false)
   const [activeDrops, setActiveDrops] = useState<ActiveXpDrop[]>([])
   const [draftRestore, setDraftRestore] = useState<{ draft: DraftPayload; ageMs: number } | null>(null)
   const [draftHydrated, setDraftHydrated] = useState(false)
@@ -164,6 +166,7 @@ export default function WorkoutForm({
   }, [exercises])
   const bossHpRemaining = boss ? Math.max(0, boss.hpMax - damageDealt) : 0
   const overkill = boss ? Math.max(0, damageDealt - boss.hpMax) : 0
+  const bossDefeated = boss !== null && bossHpRemaining <= 0
 
   // Reconcile combatLog/boss against `exercises` whenever it changes — this
   // is what makes un-completing a set (edit, toggle off, or clear back to
@@ -796,6 +799,7 @@ export default function WorkoutForm({
 
   const resetForm = () => {
     setResult(null)
+    setShowShareCard(false)
     setExercises([emptyEntry()])
     setActiveDrops([])
     setBoss(null)
@@ -814,7 +818,28 @@ export default function WorkoutForm({
         <PostWorkoutSummary
           result={result}
           skillNames={skillNames}
+          totalWeightLifted={totalWeightLifted}
+          boss={boss}
+          bossDefeated={bossDefeated}
           onLogAnother={resetForm}
+          onShare={() => setShowShareCard(true)}
+        />
+      )}
+
+      {result && (
+        <ShareCard
+          visible={showShareCard}
+          result={result}
+          exercises={exercises}
+          allExercises={allExercises}
+          workoutDate={workoutDate}
+          skillNames={skillNames}
+          skillColors={skillColors}
+          totalWeightLifted={totalWeightLifted}
+          completedSetCount={completedSetCount}
+          boss={boss}
+          bossDefeated={bossDefeated}
+          onClose={() => setShowShareCard(false)}
         />
       )}
 

@@ -1,26 +1,53 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import EquipmentIcon from '@/app/dashboard/EquipmentIcon'
 import { newlyUnlockedEquipment } from '@/app/dashboard/equipment'
 import { tierColor } from '@/app/dashboard/theme'
+import { XP_THRESHOLDS } from '@/lib/utils/xp-thresholds'
 import type { WorkoutResult } from './actions'
+import type { BossState } from './form-types'
 
 type Props = {
   result: WorkoutResult
   skillNames: Record<number, string>
+  totalWeightLifted: number
+  boss: BossState | null
+  bossDefeated: boolean
   onLogAnother: () => void
+  onShare: () => void
 }
 
-export default function PostWorkoutSummary({ result, skillNames, onLogAnother }: Props) {
+export default function PostWorkoutSummary({
+  result,
+  skillNames,
+  totalWeightLifted,
+  boss,
+  bossDefeated,
+  onLogAnother,
+  onShare,
+}: Props) {
   const router = useRouter()
+
+  // Bars mount at their pre-session position, then animate to the post-
+  // session position a beat later — the fill growing is what communicates
+  // the XP gained, not just the end numbers. (prefers-reduced-motion already
+  // disables the underlying .sq-xp-fill transition globally.)
+  const [animateBars, setAnimateBars] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setAnimateBars(true), 150)
+    return () => clearTimeout(t)
+  }, [])
 
   const skillsSummary = result.skill_results
     .map((sr) => skillNames[sr.skill_id] ?? sr.skill_name)
     .join(' + ')
 
+  // Level-up is now communicated on the XP bar itself (badge + reset-to-0
+  // fill), not a separate card — keeps it from being said twice.
   const hasAnyAchievement = result.skill_results.some(
-    (sr) => sr.achieved_pr || sr.achieved_real_pr || sr.tier_changed || sr.achieved_level_up
+    (sr) => sr.achieved_pr || sr.achieved_real_pr || sr.tier_changed
   )
 
   return (
@@ -30,11 +57,6 @@ export default function PostWorkoutSummary({ result, skillNames, onLogAnother }:
       >
         {/* Header */}
         <div className="text-center mb-6">
-          <div
-            className="inline-block text-3xl mb-2"
-          >
-            ⚔
-          </div>
           <h2
             className="sq-heading font-bold tracking-wider uppercase"
             style={{ color: 'var(--dgold)' }}
@@ -46,6 +68,31 @@ export default function PostWorkoutSummary({ result, skillNames, onLogAnother }:
           </p>
         </div>
 
+        {/* Boss fight result */}
+        {boss && (
+          <div
+            className="rounded p-4 text-center mb-5"
+            style={
+              bossDefeated
+                ? { background: 'rgba(201, 162, 39, 0.1)', border: '1px solid rgba(201, 162, 39, 0.35)' }
+                : { background: 'var(--dbg)', border: '1px solid var(--dbevel-light)' }
+            }
+          >
+            <p
+              className="text-xs font-bold uppercase tracking-widest mb-1"
+              style={{ color: bossDefeated ? 'var(--dgold)' : 'var(--dink-muted)' }}
+            >
+              {bossDefeated ? 'Boss Defeated' : 'Boss Escaped'}
+            </p>
+            <p
+              className="text-lg font-bold font-display"
+              style={{ color: bossDefeated ? 'var(--dgold)' : 'var(--dink)' }}
+            >
+              {boss.name}
+            </p>
+          </div>
+        )}
+
         {/* XP Summary */}
         <div
           className="sq-bevel-in p-4 mb-5"
@@ -53,35 +100,92 @@ export default function PostWorkoutSummary({ result, skillNames, onLogAnother }:
             background: 'var(--dbg)',
           }}
         >
-          <div className="space-y-2 text-sm">
-            {result.skill_results.map((sr) => (
-              <div key={sr.skill_id} className="flex justify-between items-center">
-                <span style={{ color: 'var(--dink-muted)' }}>
-                  {sr.skill_name}
-                  <span className="ml-1" style={{ color: 'var(--dink-muted)' }}>
-                    {sr.duration_minutes != null
-                      ? `(${sr.duration_minutes} min)`
-                      : `(${sr.set_count} sets)`}
-                  </span>
-                </span>
-                <span className="font-semibold" style={{ color: 'var(--dgold)' }}>
-                  +{sr.skill_xp} XP
-                  {(sr.pr_bonus_xp > 0 || sr.real_pr_bonus_xp > 0) && (
-                    <span className="ml-1 text-xs" style={{ color: 'var(--dgold)' }}>
-                      (+{sr.pr_bonus_xp + sr.real_pr_bonus_xp} PR)
+          <div className="space-y-3 text-sm">
+            {result.skill_results.map((sr) => {
+              const oldTotalXp = sr.new_total_xp - sr.skill_xp
+              const currentLevelXp = XP_THRESHOLDS[sr.new_level - 1]
+              const nextLevelXp = sr.new_level >= 10 ? currentLevelXp : XP_THRESHOLDS[sr.new_level]
+              const range = nextLevelXp - currentLevelXp
+              const endPct = sr.new_level >= 10
+                ? 100
+                : Math.min(100, Math.max(0, Math.round(((sr.new_total_xp - currentLevelXp) / range) * 100)))
+              // A level-up resets the bar to a fresh level, same as every
+              // other XP bar in the app — the fill growing from 0 to endPct
+              // is what reads as "leveled up", on top of the badge below.
+              const startPct = sr.achieved_level_up
+                ? 0
+                : sr.new_level >= 10
+                  ? 100
+                  : Math.min(100, Math.max(0, Math.round(((oldTotalXp - currentLevelXp) / range) * 100)))
+              const pct = animateBars ? endPct : startPct
+
+              return (
+                <div key={sr.skill_id}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span style={{ color: 'var(--dink-muted)' }}>
+                      {sr.skill_name} <span style={{ color: 'var(--dink)' }}>Lv.{sr.new_level}</span>
+                      <span className="ml-1" style={{ color: 'var(--dink-muted)' }}>
+                        {sr.duration_minutes != null
+                          ? `(${sr.duration_minutes} min)`
+                          : `(${sr.set_count} sets)`}
+                      </span>
                     </span>
-                  )}
-                </span>
-              </div>
-            ))}
+                    <span className="font-semibold" style={{ color: 'var(--dgold)' }}>
+                      +{sr.skill_xp} XP
+                      {(sr.pr_bonus_xp > 0 || sr.real_pr_bonus_xp > 0) && (
+                        <span className="ml-1 text-xs" style={{ color: 'var(--dgold)' }}>
+                          (+{sr.pr_bonus_xp + sr.real_pr_bonus_xp} PR)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div style={{ position: 'relative', paddingTop: sr.achieved_level_up ? '13px' : 0 }}>
+                    {sr.achieved_level_up && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: '#4ade80',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        &#9650; Level Up
+                      </span>
+                    )}
+                    <div className="sq-xp-track">
+                      <div
+                        className="sq-xp-fill"
+                        style={{ width: `${pct}%`, background: sr.achieved_level_up ? '#4ade80' : 'var(--dgold)' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
             <div
-              className="pt-2 mt-2 flex justify-between items-center"
+              className="pt-2 mt-2 space-y-2"
               style={{ borderTop: '1px solid var(--dbevel-dark)' }}
             >
-              <span className="font-semibold" style={{ color: 'var(--dink)' }}>Total</span>
-              <span className="font-bold text-base" style={{ color: 'var(--dgold)' }}>
-                +{result.total_xp} XP
-              </span>
+              {totalWeightLifted > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold" style={{ color: 'var(--dink)' }}>Weight Lifted</span>
+                  <span className="sq-num font-semibold" style={{ color: 'var(--dink)' }}>
+                    {totalWeightLifted.toLocaleString()} lbs
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <span className="font-semibold" style={{ color: 'var(--dink)' }}>Total</span>
+                <span className="font-bold text-base" style={{ color: 'var(--dgold)' }}>
+                  +{result.total_xp} XP
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -187,48 +291,42 @@ export default function PostWorkoutSummary({ result, skillNames, onLogAnother }:
                     })()}
                   </div>
                 )}
-
-                {/* Level Up */}
-                {sr.achieved_level_up && (
-                  <div
-                    className="rounded p-4 text-center"
-                    style={{
-                      background: 'rgba(34, 197, 94, 0.08)',
-                      border: '1px solid rgba(34, 197, 94, 0.25)',
-                    }}
-                  >
-                    <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4ade80' }}>
-                      {sr.skill_name} Level Up!
-                    </p>
-                    <p className="text-sm font-semibold mt-1" style={{ color: '#bbf7d0' }}>
-                      Lv. {sr.old_level} &rarr; Lv. {sr.new_level}
-                    </p>
-                  </div>
-                )}
               </div>
             ))}
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 mt-6">
+        <div className="mt-6 space-y-3">
           <button
-            onClick={() => router.push('/dashboard')}
-            className="sq-panel-raised flex-1 px-4 py-2.5 rounded text-sm font-semibold uppercase tracking-wider transition-colors"
-            style={{
-              color: 'var(--dink-muted)',
-              minHeight: '44px',
-            }}
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={onLogAnother}
-            className="sq-btn-gold flex-1 px-4 py-2.5 rounded text-sm font-bold uppercase tracking-wider"
+            onClick={onShare}
+            className="sq-btn-gold w-full px-4 py-2.5 rounded text-sm font-bold uppercase tracking-wider"
             style={{ minHeight: '44px' }}
           >
-            Log Another
+            Share Workout
           </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="sq-panel-raised flex-1 px-4 py-2.5 rounded text-sm font-semibold uppercase tracking-wider transition-colors"
+              style={{
+                color: 'var(--dink-muted)',
+                minHeight: '44px',
+              }}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={onLogAnother}
+              className="sq-panel-raised flex-1 px-4 py-2.5 rounded text-sm font-semibold uppercase tracking-wider transition-colors"
+              style={{
+                color: 'var(--dink-muted)',
+                minHeight: '44px',
+              }}
+            >
+              Log Another
+            </button>
+          </div>
         </div>
       </div>
     </div>
