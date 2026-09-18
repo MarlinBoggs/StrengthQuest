@@ -1,27 +1,43 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import WaitlistForm from './WaitlistForm'
 import SkillShowcase from './SkillShowcase'
 import LevelUpMoment from './LevelUpMoment'
-import { ScrollIcon, SparkIcon, CrownIcon } from './PixelIcons'
+import BossFight from './BossFight'
+import PrGear from './PrGear'
 
-const STEPS = [
-  {
-    Icon: ScrollIcon,
-    title: 'Log your workout',
-    desc: 'Record your sets and reps like turning in a quest. No spreadsheets, no ceremony.',
-  },
-  {
-    Icon: SparkIcon,
-    title: 'Earn XP toward your skills',
-    desc: 'The moment you finish a set, the XP drops. No waiting until the end of the session.',
-  },
-  {
-    Icon: CrownIcon,
-    title: 'Level up and chase new tiers',
-    desc: 'Cross the threshold, claim the fanfare, and climb the ladder from Stone toward Mythic.',
-  },
-]
+const SIGN_UP_HREF = '/login?mode=signup'
+
+// Primary CTA: signed-out visitors get Sign Up (with Play Now for returning
+// players); signed-in players go straight to the dashboard.
+function Cta({ signedIn, signUpLabel }: { signedIn: boolean; signUpLabel: string }) {
+  if (signedIn) {
+    return (
+      <Link
+        href="/dashboard"
+        className="btn-gold inline-block px-8 py-3 rounded-sm font-bold uppercase tracking-wider text-sm"
+      >
+        Play Now
+      </Link>
+    )
+  }
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+      <Link
+        href={SIGN_UP_HREF}
+        className="btn-gold inline-block w-full sm:w-auto px-8 py-3 rounded-sm font-bold uppercase tracking-wider text-sm"
+      >
+        {signUpLabel}
+      </Link>
+      <Link
+        href="/login"
+        className="card-dark inline-block w-full sm:w-auto px-8 py-3 rounded-sm font-bold uppercase tracking-wider text-sm transition-colors hover:brightness-125"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        Play Now
+      </Link>
+    </div>
+  )
+}
 
 export default async function Home() {
   const supabase = await createClient()
@@ -32,24 +48,13 @@ export default async function Home() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-abyss)' }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Existing users still get in the door */}
         <nav className="flex justify-end pt-5">
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="btn-gold px-4 py-2 rounded-sm font-bold uppercase tracking-wider text-xs"
-            >
-              Go to Dashboard
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="text-sm transition-colors hover:brightness-125"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Sign in
-            </Link>
-          )}
+          <Link
+            href={user ? '/dashboard' : '/login'}
+            className="btn-gold px-4 py-2 rounded-sm font-bold uppercase tracking-wider text-xs"
+          >
+            Play Now
+          </Link>
         </nav>
 
         {/* Hero */}
@@ -58,7 +63,7 @@ export default async function Home() {
             className="text-xs font-bold uppercase tracking-[0.35em]"
             style={{ color: 'var(--gold)' }}
           >
-            ✦ A new quest awaits ✦
+            ✦ A new PR awaits ✦
           </p>
           <div
             className="font-display text-4xl sm:text-5xl font-bold tracking-wider uppercase mt-4"
@@ -77,17 +82,18 @@ export default async function Home() {
             className="text-base sm:text-lg mt-4 max-w-xl mx-auto"
             style={{ color: 'var(--text-secondary)' }}
           >
-            The workout tracker that turns your lifts into RPG skills — every set
-            earns XP toward Push, Pull, and Legs, with levels, tiers, and
-            level-up moments.
+            The workout tracker that turns your lifts into RPG skills. Every set
+            earns XP, and every new PR earns you gear.
           </p>
 
           <div className="mt-8">
-            <WaitlistForm variant="hero" />
+            <Cta signedIn={!!user} signUpLabel="Sign up free" />
           </div>
-          <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-            Free during early access · No spam — one email when the gates open
-          </p>
+          {!user && (
+            <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
+              Free during early access · Already have an account? Hit Play Now
+            </p>
+          )}
         </section>
 
         {/* Skill panel showcase */}
@@ -106,73 +112,70 @@ export default async function Home() {
               Your lifts, as skills
             </h2>
             <p className="text-sm mt-3" style={{ color: 'var(--text-secondary)' }}>
-              Six skills. Real XP. The grind you already love — pointed at the barbell.
+              Six skills. Real XP. The grind you already love, pointed at the barbell.
             </p>
           </div>
           <SkillShowcase />
         </section>
 
-        {/* How it works */}
+        {/* PRs earn gear */}
         <section className="py-14">
-          <h2
-            className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-wider text-center mb-8"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            How it works
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {STEPS.map((step, i) => (
-              <div key={step.title} className="card-dark p-6 text-center">
-                <div
-                  className="font-display text-sm font-bold tracking-widest"
-                  style={{ color: 'var(--gold-dim)' }}
-                >
-                  {i + 1}
-                </div>
-                <span
-                  className="inline-flex mt-3"
-                  style={{ color: 'var(--gold-bright)' }}
-                >
-                  <step.Icon size={28} />
-                </span>
-                <h3
-                  className="font-display text-base font-bold uppercase tracking-wider mt-3"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {step.title}
-                </h3>
-                <p
-                  className="text-sm mt-2"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  {step.desc}
-                </p>
-              </div>
-            ))}
+          <div className="text-center mb-8">
+            <p
+              className="text-xs font-bold uppercase tracking-[0.3em]"
+              style={{ color: 'var(--gold)' }}
+            >
+              PRs earn gear
+            </p>
+            <h2
+              className="font-display text-3xl sm:text-4xl font-bold uppercase tracking-wider mt-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Lift more, wear more
+            </h2>
+            <p
+              className="text-sm mt-3 max-w-xl mx-auto"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Beat your best lift and you climb a tier. Every tier unlocks new
+              armor for your character, and once it&apos;s earned, it&apos;s yours
+              for good.
+            </p>
           </div>
+          <PrGear />
+        </section>
+
+        {/* Boss fight */}
+        <section className="py-14">
+          <div className="text-center mb-8">
+            <p
+              className="text-xs font-bold uppercase tracking-[0.3em]"
+              style={{ color: 'var(--gold)' }}
+            >
+              Every session is a boss fight
+            </p>
+            <h2
+              className="font-display text-3xl sm:text-4xl font-bold uppercase tracking-wider mt-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Your sets are the damage
+            </h2>
+            <p
+              className="text-sm mt-3 max-w-xl mx-auto"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Each workout spawns a boss scaled to your recent sessions. Every
+              set you finish hits it for the XP you earned. Put in real work and
+              it falls. Cut the session short and it escapes to fight another
+              day, with no penalty.
+            </p>
+          </div>
+          <BossFight />
         </section>
 
         {/* The level-up moment */}
         <section className="py-14">
           <LevelUpMoment />
-        </section>
-
-        {/* Who it's for */}
-        <section className="py-14">
-          <div className="card-dark max-w-2xl mx-auto p-8 sm:p-10 text-center">
-            <p
-              className="font-display text-lg sm:text-xl font-bold leading-relaxed"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              If you’ve ever spent 40 hours grinding a skill in a game, you
-              already have everything it takes to get strong.
-            </p>
-            <p className="text-sm mt-4" style={{ color: 'var(--text-secondary)' }}>
-              StrengthQuest just gives your training the XP bar it always
-              deserved. Same obsession, new stat sheet — and this one carries
-              over to real life.
-            </p>
-          </div>
         </section>
 
         {/* Final CTA */}
@@ -181,15 +184,17 @@ export default async function Home() {
             className="font-display text-3xl sm:text-4xl font-bold uppercase tracking-wider"
             style={{ color: 'var(--gold-bright)' }}
           >
-            Reserve your spot in the beta
+            {user ? 'Your quest continues' : 'Begin your quest'}
           </h2>
           <p
             className="text-sm mt-3 mb-8"
             style={{ color: 'var(--text-secondary)' }}
           >
-            The first wave of adventurers gets in free. Add your name to the scroll.
+            {user
+              ? 'Your skills are waiting. Go earn some XP.'
+              : 'Create your character in under a minute. Free during early access.'}
           </p>
-          <WaitlistForm variant="footer" />
+          <Cta signedIn={!!user} signUpLabel="Create your character" />
         </section>
 
         {/* Footer */}

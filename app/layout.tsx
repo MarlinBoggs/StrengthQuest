@@ -20,7 +20,7 @@ const siteDescription =
 export const metadata: Metadata = {
   metadataBase: new URL("https://strength-quest.vercel.app"),
   title: {
-    default: "StrengthQuest — Level up your strength IRL",
+    default: "StrengthQuest | Level up your strength IRL",
     template: "%s · StrengthQuest",
   },
   description: siteDescription,
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   openGraph: {
-    title: "StrengthQuest — Level up your strength IRL",
+    title: "StrengthQuest | Level up your strength IRL",
     description: siteDescription,
     url: "/",
     siteName: "StrengthQuest",
@@ -41,13 +41,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "StrengthQuest — Level up your strength IRL",
+        alt: "StrengthQuest | Level up your strength IRL",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "StrengthQuest — Level up your strength IRL",
+    title: "StrengthQuest | Level up your strength IRL",
     description: siteDescription,
     images: ["/og-image.png"],
   },

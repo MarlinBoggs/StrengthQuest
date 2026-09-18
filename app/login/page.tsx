@@ -1,17 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-export default function LoginPage() {
+// Where the sign-up confirmation email sends people. Must also be listed under
+// Supabase → Authentication → URL Configuration → Redirect URLs.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://strength-quest.vercel.app'
+
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>
+}) {
+  const { mode } = use(searchParams)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(mode === 'signup')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  // Arriving from the confirmation email (or already signed in): the client
+  // picks the session up from the URL — send them straight into the game.
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        router.replace('/dashboard')
+        router.refresh()
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [supabase, router])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,6 +46,7 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: { emailRedirectTo: `${SITE_URL}/login` },
         })
         if (error) throw error
         alert('Check your email for the confirmation link!')
