@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { formatLoad } from '@/lib/utils/format-load'
 import type { WorkoutSummary } from './types'
 
 type Props = {
@@ -134,11 +135,13 @@ export default function SessionDetailSheet({ workout, onClose }: Props) {
                         style={{ fontSize: '13px', color: 'var(--dink-muted)' }}
                       >
                         <span className="sq-num" style={{ color: 'var(--dink)' }}>
-                          {s.weight ?? 0} × {s.reps ?? 0}
+                          {formatLoad(s.weight, !!ex.is_bodyweight)} × {s.reps ?? 0}
                         </span>
                         <span className="flex gap-3">
                           {s.rpe != null && <span>RPE {s.rpe}</span>}
-                          {s.calculated_1rm != null && <span>~{Math.round(s.calculated_1rm)} 1RM</span>}
+                          {!ex.is_bodyweight && s.calculated_1rm != null && (
+                            <span>~{Math.round(s.calculated_1rm)} 1RM</span>
+                          )}
                         </span>
                       </div>
                     ))}

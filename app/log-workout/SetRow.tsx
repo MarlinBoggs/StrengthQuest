@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { calculate1RM } from '@/lib/utils/calculate-1rm'
 import type { ActiveXpDrop, SetEntry } from './form-types'
 
@@ -8,15 +9,24 @@ type Props = {
   setIdx: number
   loading: boolean
   drops: ActiveXpDrop[]
+  // Bodyweight exercise: blank weight = bodyweight, a value = added load.
+  isBodyweight: boolean
   onUpdate: (field: 'weight' | 'reps' | 'rpe', value: string) => void
   onToggle: () => void
   onRemove: () => void
 }
 
-export default function SetRow({ set, setIdx, loading, drops, onUpdate, onToggle, onRemove }: Props) {
+export default function SetRow({ set, setIdx, loading, drops, isBodyweight, onUpdate, onToggle, onRemove }: Props) {
   const w = parseFloat(set.weight)
   const r = parseInt(set.reps)
-  const estimated1rm = !isNaN(w) && w > 0 && !isNaN(r) && r > 0 ? calculate1RM(w, r) : null
+  // Added load alone isn't a meaningful 1RM, so bodyweight sets skip the estimate.
+  const estimated1rm =
+    !isBodyweight && !isNaN(w) && w > 0 && !isNaN(r) && r > 0 ? calculate1RM(w, r) : null
+
+  // Bodyweight sets default to a "BW" chip; the lbs input only appears once
+  // the user taps it to add load (or a set already carries added weight).
+  const [addingLoad, setAddingLoad] = useState(false)
+  const showBwChip = isBodyweight && set.weight === '' && !addingLoad
 
   return (
     <div
@@ -51,18 +61,48 @@ export default function SetRow({ set, setIdx, loading, drops, onUpdate, onToggle
         >
           {setIdx + 1}
         </span>
-        <input
-          type="number"
-          inputMode="decimal"
-          placeholder="lbs"
-          value={set.weight}
-          onChange={(e) => onUpdate('weight', e.target.value)}
-          className="sq-input w-16 sm:w-20 px-1.5 py-2 text-center sq-num"
-          disabled={loading || set.completed}
-          step="0.5"
-          min="0"
-          aria-label={`Set ${setIdx + 1} weight in pounds`}
-        />
+        {showBwChip ? (
+          <button
+            type="button"
+            onClick={() => setAddingLoad(true)}
+            className="sq-input w-16 sm:w-20 px-1.5 py-2 text-center font-bold tracking-wider"
+            style={{ fontSize: '13px', color: 'var(--dgold)', borderStyle: 'dashed' }}
+            disabled={loading || set.completed}
+            title="Bodyweight — tap to add weight (belt, vest)"
+            aria-label={`Set ${setIdx + 1}: bodyweight. Tap to add weight`}
+          >
+            BW
+          </button>
+        ) : (
+          <>
+            {isBodyweight && (
+              <span className="sq-num shrink-0" style={{ fontSize: '13px', color: 'var(--dgold)' }}>
+                BW+
+              </span>
+            )}
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="lbs"
+              value={set.weight}
+              onChange={(e) => onUpdate('weight', e.target.value)}
+              // Clearing the added load drops back to the plain BW chip.
+              onBlur={() => {
+                if (isBodyweight && set.weight === '') setAddingLoad(false)
+              }}
+              autoFocus={isBodyweight && addingLoad && set.weight === ''}
+              className={`sq-input ${isBodyweight ? 'w-12 sm:w-16' : 'w-16 sm:w-20'} px-1.5 py-2 text-center sq-num`}
+              disabled={loading || set.completed}
+              step="0.5"
+              min="0"
+              aria-label={
+                isBodyweight
+                  ? `Set ${setIdx + 1} added weight in pounds`
+                  : `Set ${setIdx + 1} weight in pounds`
+              }
+            />
+          </>
+        )}
         <span style={{ fontSize: '13px', color: 'var(--dink-muted)' }}>&times;</span>
         <input
           type="number"

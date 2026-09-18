@@ -34,6 +34,8 @@ export type AccessoryLift = {
   name: string
   weight: number
   reps: number
+  // Bodyweight PRs are rep-based; `weight` is added load (0 = bodyweight).
+  isBodyweight: boolean
 }
 
 // One point per past session for the skill sparkline. `value` is est. 1RM

@@ -61,6 +61,7 @@ export default function ExerciseCard({
   onAddCardioSet,
 }: Props) {
   const isCardio = exercise.mode === 'cardio'
+  const isBodyweight = !!allExercises.find((e) => String(e.id) === exercise.exerciseId)?.is_bodyweight
   const lastPerformance = lastPerformanceByExercise[exercise.exerciseId] ?? null
   const showPrefill = !!exercise.exerciseId && !!lastPerformance && isEntryUntouched(exercise)
 
@@ -114,12 +115,19 @@ export default function ExerciseCard({
           disabled={loading}
         >
           <span className="truncate" style={{ color: 'var(--dink-muted)' }}>
-            Last: {formatLastPerformanceSummary(lastPerformance)} · {formatDaysAgo(lastPerformance.workoutDate)}
+            Last: {formatLastPerformanceSummary(lastPerformance, isBodyweight)} · {formatDaysAgo(lastPerformance.workoutDate)}
           </span>
           <span className="shrink-0 font-semibold uppercase tracking-wider" style={{ color: 'var(--dgold)' }}>
             Prefill
           </span>
         </button>
+      )}
+
+      {isBodyweight && !isCardio && (
+        <p className="mb-2 px-1.5" style={{ fontSize: '13px', color: 'var(--dink-muted)' }}>
+          <span className="font-bold tracking-wider" style={{ color: 'var(--dgold)' }}>BW</span>{' '}
+          Bodyweight exercise. Just log reps; tap BW to add weight.
+        </p>
       )}
 
       <div className="space-y-1">
@@ -143,6 +151,7 @@ export default function ExerciseCard({
                 setIdx={setIdx}
                 loading={loading}
                 drops={drops}
+                isBodyweight={isBodyweight}
                 onUpdate={(field, value) => onUpdateSet(setIdx, field, value)}
                 onToggle={() => onToggleSet(setIdx)}
                 onRemove={() => onRemoveSet(setIdx)}

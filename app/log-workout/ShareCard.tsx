@@ -2,6 +2,7 @@
 
 import { tierColor } from '@/app/dashboard/theme'
 import { XP_THRESHOLDS } from '@/lib/utils/xp-thresholds'
+import { formatLoad } from '@/lib/utils/format-load'
 import type { WorkoutResult } from './actions'
 import type { BossState, Exercise, ExerciseEntry, SetEntry } from './form-types'
 
@@ -14,6 +15,7 @@ type Props = {
   skillNames: Record<number, string>
   skillColors: Record<number, string>
   totalWeightLifted: number
+  totalReps: number
   completedSetCount: number
   boss: BossState | null
   bossDefeated: boolean
@@ -78,11 +80,11 @@ type ExerciseSummaryLine = {
 // just RPE) is its own comma-separated entry in the order first performed
 // ("135 lbs × 10, 225 lbs × 10"). RPE only shows when it was actually
 // entered — it's optional and usually left blank.
-function formatStrengthSets(sets: SetEntry[]): string {
+function formatStrengthSets(sets: SetEntry[], isBodyweight: boolean): string {
   const groups: { weight: string; reps: string; rpe: string; count: number }[] = []
   for (const s of sets) {
     if (!s.completed) continue
-    const weight = s.weight || '0'
+    const weight = formatLoad(s.weight, isBodyweight, true)
     const reps = s.reps || '0'
     const rpe = s.rpe || ''
     const existing = groups.find((g) => g.weight === weight && g.reps === reps && g.rpe === rpe)
@@ -93,7 +95,7 @@ function formatStrengthSets(sets: SetEntry[]): string {
     .map((g) => {
       const rpeSuffix = g.rpe ? ` @ RPE ${g.rpe}` : ''
       const countSuffix = g.count > 1 ? ` × ${g.count}` : ''
-      return `${g.weight} lbs × ${g.reps}${rpeSuffix}${countSuffix}`
+      return `${g.weight} × ${g.reps}${rpeSuffix}${countSuffix}`
     })
     .join(', ')
 }
@@ -117,7 +119,7 @@ function buildExerciseSummary(exercises: ExerciseEntry[], allExercises: Exercise
           : 'Low'
       lines.push({ key: String(idx), name: info.name, isPrimary: false, detail: `${totalDuration} min · ${label}` })
     } else {
-      const detail = formatStrengthSets(ex.sets)
+      const detail = formatStrengthSets(ex.sets, info.is_bodyweight)
       if (!detail) return
       lines.push({ key: String(idx), name: info.name, isPrimary: info.is_primary, detail })
     }
@@ -134,6 +136,7 @@ export default function ShareCard({
   skillNames,
   skillColors,
   totalWeightLifted,
+  totalReps,
   completedSetCount,
   boss,
   bossDefeated,
@@ -180,9 +183,10 @@ export default function ShareCard({
           {/* Hero banner — one headline, only when there's an achievement to lead with */}
           {banner && <HeroBannerCard banner={banner} />}
 
-          {/* Stat row */}
-          <div className={`grid grid-cols-3 gap-2 ${banner ? 'mt-4' : ''}`}>
+          {/* Stat grid — 2×2 so "12,345 lbs" still fits at phone width */}
+          <div className={`grid grid-cols-2 gap-2 ${banner ? 'mt-4' : ''}`}>
             <StatTile label="Weight" value={totalWeightLifted.toLocaleString()} unit="lbs" />
+            <StatTile label="Reps" value={totalReps.toLocaleString()} />
             <StatTile label="Sets" value={String(completedSetCount)} />
             <StatTile label="XP" value={`+${result.total_xp}`} accent />
           </div>

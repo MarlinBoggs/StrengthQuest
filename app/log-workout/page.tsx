@@ -23,12 +23,26 @@ export default async function LogWorkoutPage() {
     .order('id')
 
   const activeSkillIds = (skills ?? []).map(s => s.id)
-  const { data: exercises } = await supabase
-    .from('exercises')
-    .select('id, name, slug, skill_id, is_primary, tracks_duration, allows_weight')
-    .in('skill_id', activeSkillIds)
-    .order('is_primary', { ascending: false })
-    .order('name')
+  const exerciseQuery = (columns: string) =>
+    supabase
+      .from('exercises')
+      .select(columns)
+      .in('skill_id', activeSkillIds)
+      .order('is_primary', { ascending: false })
+      .order('name')
+
+  const primary = await exerciseQuery(
+    'id, name, slug, skill_id, is_primary, tracks_duration, allows_weight, is_bodyweight'
+  )
+  let exercises = primary.data
+  // Migrations are applied by hand, so the code can ship before 022 runs.
+  // Without this fallback a missing is_bodyweight column empties the picker.
+  if (primary.error) {
+    console.error('Exercise query failed (is migration 022 applied?):', primary.error.message)
+    exercises = (await exerciseQuery(
+      'id, name, slug, skill_id, is_primary, tracks_duration, allows_weight'
+    )).data
+  }
 
   const skillNames: Record<number, string> = {}
   const skillColors: Record<number, string> = {}
@@ -37,13 +51,23 @@ export default async function LogWorkoutPage() {
     skillColors[skill.id] = skill.color_hex
   }
 
-  const allExercises = (exercises ?? []).map(ex => ({
+  type ExerciseRow = {
+    id: number
+    name: string
+    skill_id: number
+    is_primary: boolean
+    tracks_duration: boolean
+    allows_weight: boolean
+    is_bodyweight?: boolean
+  }
+  const allExercises = ((exercises ?? []) as unknown as ExerciseRow[]).map(ex => ({
     id: ex.id,
     name: ex.name,
     is_primary: ex.is_primary,
     skill_id: ex.skill_id,
     tracks_duration: ex.tracks_duration,
     allows_weight: ex.allows_weight,
+    is_bodyweight: !!ex.is_bodyweight,
   }))
 
   const { data: userSkills } = await supabase

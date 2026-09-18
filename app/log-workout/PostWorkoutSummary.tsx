@@ -13,6 +13,7 @@ type Props = {
   result: WorkoutResult
   skillNames: Record<number, string>
   totalWeightLifted: number
+  totalReps: number
   boss: BossState | null
   bossDefeated: boolean
   onLogAnother: () => void
@@ -23,6 +24,7 @@ export default function PostWorkoutSummary({
   result,
   skillNames,
   totalWeightLifted,
+  totalReps,
   boss,
   bossDefeated,
   onLogAnother,
@@ -177,6 +179,14 @@ export default function PostWorkoutSummary({
                   <span className="font-semibold" style={{ color: 'var(--dink)' }}>Weight Lifted</span>
                   <span className="sq-num font-semibold" style={{ color: 'var(--dink)' }}>
                     {totalWeightLifted.toLocaleString()} lbs
+                  </span>
+                </div>
+              )}
+              {totalReps > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold" style={{ color: 'var(--dink)' }}>Total Reps</span>
+                  <span className="sq-num font-semibold" style={{ color: 'var(--dink)' }}>
+                    {totalReps.toLocaleString()}
                   </span>
                 </div>
               )}

@@ -259,6 +259,7 @@ export default async function DashboardPage() {
         name: pr.exercise_name,
         weight: pr.best_weight,
         reps: pr.best_reps,
+        isBodyweight: !!pr.is_bodyweight,
       })),
       trend: trendBySkill[us.skill_id] ?? [],
     }

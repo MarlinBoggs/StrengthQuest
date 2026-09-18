@@ -6,6 +6,7 @@ import {
   calculateCardioSetXp,
   type CardioIntensity,
 } from '@/lib/utils/calculate-xp'
+import { formatLoad } from '@/lib/utils/format-load'
 import { logWorkout, type WorkoutResult } from './actions'
 import PostWorkoutSummary from './PostWorkoutSummary'
 import ShareCard from './ShareCard'
@@ -211,7 +212,11 @@ export default function WorkoutForm({
       return s2 + w * r
     }, 0), 0)
 
-  const hasAnySelectedExercise = exercises.some((ex) => ex.exerciseId !== '')
+  // Counts bodyweight sets too — for push-ups/pull-ups, reps are the headline number.
+  const totalReps = exercises.reduce((sum, ex) =>
+    sum + ex.sets.filter(s => s.completed).reduce((s2, set) => s2 + (parseInt(set.reps) || 0), 0), 0)
+
+  const hasAnySelectedExercise =exercises.some((ex) => ex.exerciseId !== '')
 
   // --- localStorage draft: read on mount ---
   useEffect(() => {
@@ -521,7 +526,13 @@ export default function WorkoutForm({
     )
     createXpDrop(exerciseIdx, setIdx, awardedXp, colorHex)
     playTick()
-    handleCombatEvent(skillId, info?.name ?? 'Exercise', `${weight} × ${reps}`, awardedXp, `${exerciseIdx}:set:${setIdx}`)
+    handleCombatEvent(
+      skillId,
+      info?.name ?? 'Exercise',
+      `${formatLoad(weight, !!info?.is_bodyweight)} × ${reps}`,
+      awardedXp,
+      `${exerciseIdx}:set:${setIdx}`
+    )
   }
 
   const markSetEditable = (exerciseIdx: number, setIdx: number) => {
@@ -643,10 +654,12 @@ export default function WorkoutForm({
           }
         }
         if (!lp.sets || lp.sets.length === 0) return entry
+        // Bodyweight sets stored as 0 added load prefill as blank ("BW"), not "0".
+        const isBodyweight = !!getExerciseInfo(entry.exerciseId)?.is_bodyweight
         return {
           ...entry,
           sets: lp.sets.map((s) => ({
-            weight: s.weight != null ? String(s.weight) : '',
+            weight: s.weight != null && !(isBodyweight && Number(s.weight) === 0) ? String(s.weight) : '',
             reps: s.reps != null ? String(s.reps) : '',
             rpe: s.rpe != null ? String(s.rpe) : '',
             completed: false,
@@ -819,6 +832,7 @@ export default function WorkoutForm({
           result={result}
           skillNames={skillNames}
           totalWeightLifted={totalWeightLifted}
+          totalReps={totalReps}
           boss={boss}
           bossDefeated={bossDefeated}
           onLogAnother={resetForm}
@@ -836,6 +850,7 @@ export default function WorkoutForm({
           skillNames={skillNames}
           skillColors={skillColors}
           totalWeightLifted={totalWeightLifted}
+          totalReps={totalReps}
           completedSetCount={completedSetCount}
           boss={boss}
           bossDefeated={bossDefeated}

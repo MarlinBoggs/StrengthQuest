@@ -222,7 +222,9 @@ export default function SkillDetailSheet({ skill, onClose }: Props) {
                       {a.name}
                     </span>
                     <span className="sq-num shrink-0" style={{ color: 'var(--dink-muted)' }}>
-                      {a.weight} × {a.reps}
+                      {a.isBodyweight
+                        ? `${a.reps} reps${a.weight > 0 ? ` @ BW+${a.weight}` : ''}`
+                        : `${a.weight} × ${a.reps}`}
                     </span>
                   </div>
                 ))}

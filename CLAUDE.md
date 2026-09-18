@@ -86,6 +86,7 @@ DataModel.md                  # Full data model documentation
 - **No intensity slider / workout length input in the UI** — per-set difficulty IS the effort signal
 - **Cardio uses per-exercise `durationMinutes`**
 - **Strength sets are added individually in the form**; there is no bulk repeat-set shortcut
+- **Bodyweight exercises** (`exercises.is_bodyweight`): the weight slot defaults to a gold `BW` chip (no input needed); tapping it reveals a `BW+ [lbs]` input for added load, and clearing it returns to the chip. `workout_sets.weight_lbs` stores **added** load (0 = bodyweight only). PRs rank by reps, with added load as the tiebreaker; no 1RM is shown. Render loads with `formatLoad()` from `lib/utils/format-load.ts` (`BW`, `BW+25`, `135`).
 - **localStorage draft autosave**: on every change, `WorkoutForm` writes `{exercises, date, savedAt}` to `sq:workout-draft:{characterId}`. On mount it reads that key and, if the draft is <24h old, shows a Resume/Discard banner. The key is deleted on successful submit, on Discard, or if the draft is stale/malformed. (Older drafts carried a `sessionSkillXp` key — it's ignored on read; session XP is now derived from `exercises`.)
 - **Session XP is derived, never tracked**: per-skill session XP in the sticky header is a `useMemo` over `exercises` (sum of `xpAwarded` on completed sets, keyed by skill). There is no separate session-XP state to keep in sync — do not reintroduce one.
 
@@ -198,6 +199,8 @@ Sequential SQL files in `supabase/migrations/`. User runs them manually in Supab
 | 018 | Real-time XP infrastructure: drop intensity/length params from both RPCs, sum per-set/per-entry `xpAwarded` (computed in `calculate-xp.ts`), store `workouts.intensity`/`length_minutes` as NULL |
 | 019 | Defense rep-based exercises (`tracks_duration=FALSE`) + XP-milestone tier updates in `log_multi_skill_workout` for cardio/hiit/mobility skills |
 | 020 | `waitlist` table for the landing page (INSERT-only RLS, unique lower(email)) |
+| 021 | Workout history RPCs (`get_last_exercise_performance`, `get_workout_history`, `get_skill_trend`) + persisted per-set `xp_awarded` |
+| 022 | `exercises.is_bodyweight` (push-ups, dips, pull-ups, chin-ups, step downs, Spanish squats); rep-based PRs in `get_exercise_prs` (+ ownership check); `is_bodyweight` in `get_workout_history` |
 
 ## Real-Time XP (Core Design Philosophy)
 

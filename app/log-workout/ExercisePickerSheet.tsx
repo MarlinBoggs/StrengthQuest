@@ -156,7 +156,7 @@ export default function ExercisePickerSheet({
                           <span className="truncate">{ex.name}</span>
                           {lp && (
                             <span className="truncate" style={{ fontSize: '12px', color: 'var(--dink-muted)' }}>
-                              Last: {formatLastPerformanceSummary(lp)} · {formatDaysAgo(lp.workoutDate)}
+                              Last: {formatLastPerformanceSummary(lp, ex.is_bodyweight)} · {formatDaysAgo(lp.workoutDate)}
                             </span>
                           )}
                         </span>

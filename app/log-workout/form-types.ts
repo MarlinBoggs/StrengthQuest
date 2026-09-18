@@ -1,5 +1,7 @@
 // Shared types for the Log Workout form and its presentational components.
 
+import { formatLoad } from '@/lib/utils/format-load'
+
 export type Exercise = {
   id: number
   name: string
@@ -7,6 +9,8 @@ export type Exercise = {
   skill_id: number
   tracks_duration: boolean
   allows_weight: boolean
+  // Weight field is ADDED load; blank = bodyweight only. PRs are rep-based.
+  is_bodyweight: boolean
 }
 
 export type SetEntry = {
@@ -86,9 +90,9 @@ export function formatDaysAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
-export function formatLastPerformanceSummary(lp: LastPerformance): string {
+export function formatLastPerformanceSummary(lp: LastPerformance, isBodyweight = false): string {
   if (lp.sets && lp.sets.length > 0) {
-    return lp.sets.map((s) => `${s.weight ?? 0}×${s.reps ?? 0}`).join(', ')
+    return lp.sets.map((s) => `${formatLoad(s.weight, isBodyweight)}×${s.reps ?? 0}`).join(', ')
   }
   if (lp.durationMinutes != null) {
     const label = lp.intensity === 'high' ? 'High' : lp.intensity === 'low' ? 'Low' : 'Med'

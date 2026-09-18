@@ -13,6 +13,8 @@ export type WorkoutExerciseSummary = {
   exercise_name: string
   skill_id: number
   tracks_duration: boolean
+  // Added in migration 022; absent on older RPC deployments.
+  is_bodyweight?: boolean
   duration_minutes: number | null
   intensity: 'low' | 'med' | 'high' | null
   sets: WorkoutSetSummary[] | null
